@@ -1,0 +1,12 @@
+.dev.vars
+.env
+node_modules/
+.wrangler/
+.bridge/
+worker.deploy.mjs
+
+# Local runtime and diagnostic reports
+*.exe
+*.log
+command-audit.json
+telegram-menu-verified.json
