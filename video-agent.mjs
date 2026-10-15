@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {pidAlive,agentAlive} from './runtime-status.mjs';
 import {editorialRequest,saveReview,POLICY_VERSION} from './editorial-policy.mjs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -39,7 +40,7 @@ async function cloud(config,route,{body={},job,raw}={}) {
     ...(route==='ping'?{}:{body:raw?fs.createReadStream(raw):JSON.stringify(body)}),duplex:'half',signal:AbortSignal.timeout(raw?240000:20000)});
   const result=await r.json();if(!r.ok)throw Error('Cloud '+r.status+(result.error?': '+result.error:''));return result;
 }
-async function ensureStudio(config) {
+export async function ensureStudio(config) {
   try{await studioSnapshot(config.studio);return;}catch{}
   const entry=path.join(config.appRoot,'scripts','ui-server.mjs');
   if(!fs.existsSync(entry))throw Error('Không thấy ứng dụng dựng video');
@@ -125,17 +126,20 @@ async function main() {
     if(fs.existsSync(previousLock)){
       const previousPid=Number(fs.readFileSync(previousLock,'utf8'));
       if(Number.isInteger(previousPid)&&previousPid>0){
-        try{process.kill(previousPid,0);throw Error('Cau noi o C van chay; khong khoi dong ban thu hai.');}
-        catch(err){if(err.code!=='ESRCH')throw Error('Chua xac nhan cau noi cu da dung. Mo NewsAutoBear-Start.exe de kiem tra.');}
+        if(agentAlive(path.dirname(previousLock)))throw Error('Cầu nối ổ C vẫn chạy. Không khởi động bản thứ hai.');
       }
     }
   }
   // One local renderer process only, including accidental double-clicks of the launcher.
   const lock=path.join(PRIVATE,'agent.pid');
-  if(fs.existsSync(lock)){const pid=Number(fs.readFileSync(lock,'utf8'));try{process.kill(pid,0);throw Error('Agent đã chạy');}catch(e){if(e.code!=='ESRCH')throw e;}}
+  if(fs.existsSync(lock)){const pid=Number(fs.readFileSync(lock,'utf8'));if(agentAlive(PRIVATE))throw Error('Agent đã chạy');}
   if(fs.existsSync(lock))fs.unlinkSync(lock);
   fs.writeFileSync(lock,String(process.pid),{flag:'wx'});
   process.on('exit',()=>{try{if(Number(fs.readFileSync(lock,'utf8'))===process.pid)fs.unlinkSync(lock);}catch{}});
+  const heartbeatFile=path.join(PRIVATE,'agent-heartbeat.json');
+  const pulse=()=>{try{fs.writeFileSync(heartbeatFile,JSON.stringify({pid:process.pid,seen:Date.now()}));}catch{}};
+  pulse();const pulseTimer=setInterval(pulse,15000);pulseTimer.unref();
+  process.on('exit',()=>{try{if(JSON.parse(fs.readFileSync(heartbeatFile,'utf8')).pid===process.pid)fs.unlinkSync(heartbeatFile);}catch{}});
   log('NewsAutoBear video agent started');
   while(true){
     try{
