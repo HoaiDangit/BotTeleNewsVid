@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {heartbeatLabel,agentAlive} from './runtime-status.mjs';
+test('cloud heartbeat distinguishes fresh stale and future timestamps',()=>{assert.match(heartbeatLabel(99000,100000),/ĐANG KẾT NỐI/);assert.match(heartbeatLabel(1,200000),/CHƯA KẾT NỐI/);assert.match(heartbeatLabel(101000,100000),/CHƯA KẾT NỐI/);});
+test('agent lease permits checking activity without Windows process visibility',()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'news-agent-'));try{assert.equal(agentAlive(d),false);fs.writeFileSync(path.join(d,'agent-heartbeat.json'),JSON.stringify({seen:Date.now(),pid:123}));assert.equal(agentAlive(d),true);fs.writeFileSync(path.join(d,'agent-heartbeat.json'),JSON.stringify({seen:Date.now()-60000,pid:123}));assert.equal(agentAlive(d),false);}finally{fs.rmSync(d,{recursive:true});}});
