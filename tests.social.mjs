@@ -1,0 +1,4 @@
+import fs from 'node:fs';import vm from 'node:vm';import test from 'node:test';import assert from 'node:assert/strict';
+const source=fs.readFileSync(new URL('social-cloud.mjs',import.meta.url),'utf8');const api=vm.runInNewContext(source+';({socialPost,socialPrompt,SOCIAL_FEEDBACK})');
+test('social post has attribution, uncertainty and exact feedback at end',()=>{const a={url:'https://vietnamnet.vn/a',summary:'Một nguồn dữ liệu',title:'AI'};const p=api.socialPost(a,'Nhận xét tham khảo về giá trị của thông tin được cung cấp. Người đọc cần kiểm tra điều kiện áp dụng trước khi đưa ra kết luận cho tình huống của mình.');assert.ok(p.endsWith(api.SOCIAL_FEEDBACK));assert.ok(p.includes(a.url));assert.ok(p.includes('chưa được đối chiếu độc lập'));assert.equal(api.socialPost(a,null),null);});
+test('copied paragraph is blocked',()=>{const s=Array.from({length:30},(_,i)=>'từ'+i).join(' ');assert.equal(api.socialPost({summary:s,url:'https://example.com'},s),null);});
