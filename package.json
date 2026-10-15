@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node build-video.mjs && node --test tests.mjs tests.integration.mjs tests.video.mjs tests.editorial.mjs tests.social.mjs",
+    "test": "node build-video.mjs && node --test tests.mjs tests.integration.mjs tests.video.mjs tests.editorial.mjs tests.social.mjs tests.runtime.mjs",
     "build": "node build-video.mjs",
     "video": "node video-agent.mjs"
   }
