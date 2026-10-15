@@ -1,9 +1,11 @@
-# Mở Studio và cầu nối Telegram
+# Khởi động và kiểm tra trạng thái
 
-Nhấp đúp NewsAutoBear-Start.exe trong thư mục này. Giữ EXE cùng start-studio.ps1, video-agent.mjs và thư mục cấu hình .bridge; chỉ tạo shortcut nếu muốn đặt ngoài Desktop, không di chuyển riêng EXE.
+Mở NewsAutoBear-Start.exe tại teleSetup. Cửa sổ hiện trạng thái Studio, tiến trình cầu nối, ghép Telegram và heartbeat Cloudflare; tự kiểm tra mỗi 10 giây. Có nút Khởi động, Kiểm tra lại, Mở Studio và Mở nhật ký. Đóng cửa sổ không dừng tiến trình nền.
 
-Tệp khởi động dùng Node.js đã cài, mở KT AI Video Studio tại địa chỉ http://127.0.0.1:4000 và chạy cầu nối nền. Nếu Studio không sẵn sàng sẽ báo lỗi, không báo thành công giả. Nhật ký nằm trong .bridge.
+EXE gọi Node.js trực tiếp, không chạy PowerShell script ẩn. Node.js phải có trong PATH. Giữ EXE cùng Launcher.cs, launcher-status.mjs, runtime-status.mjs, video-agent.mjs và các tệp hỗ trợ trong thư mục này. Cấu hình riêng ở .bridge/config.json, không tải lên GitHub.
 
-Sau khi giao diện mở, gửi /check_status trên Telegram, rồi /video <link>. Máy phải bật, có mạng và không sleep. Đây là launcher nội bộ được biên dịch từ Launcher.cs, không phải bộ cài độc lập; không cần quyền quản trị và không thay đổi ExecutionPolicy.
+Studio lỗi dựng và Studio chưa mở được hiển thị riêng. Tiến trình cầu nối còn sống không đồng nghĩa đã kết nối cloud; chỉ heartbeat mới dưới hai phút xác nhận điều đó. Cầu nối ghi heartbeat riêng trên máy mỗi 15 giây để tránh phụ thuộc hoàn toàn vào khả năng nhìn PID của phiên Windows.
 
-Chưa thêm lệnh khởi động Telegram: nếu cầu nối tắt thì bot cloud không có tiến trình trên máy để nhận lệnh. Launcher xử lý trường hợp đó bằng một lần nhấp trên Windows.
+Nếu yêu cầu video trước đó đã báo thất bại, gửi lại /video sau khi trạng thái sẵn sàng; không tự gửi lại để tránh tạo trùng.
+
+Biên dịch EXE: dùng csc.exe của .NET Framework với /target:winexe /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /out:NewsAutoBear-Start.exe Launcher.cs. EXE là đầu ra cục bộ, không commit.
