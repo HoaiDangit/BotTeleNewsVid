@@ -1,0 +1,10 @@
+{
+  "name": "newsautobear-bot",
+  "main": "worker.deploy.mjs",
+  "build": {"command":"node build-video.mjs"},
+  "compatibility_date": "2026-10-14",
+  "account_id": "542f557bfd7d6cecb29bbf6b39b26cb4",
+  "d1_databases": [{"binding":"DB","database_name":"newsautobear-db","database_id":"936d7b44-3772-4786-a726-ee161708863a"}],
+  "triggers": {"crons":["*/3 * * * *"]},
+  "vars": {"GEMINI_MODEL":"gemini-3.5-flash-lite","AI_ENABLED":"true"}
+}
