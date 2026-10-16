@@ -1,6 +1,8 @@
-# Tin thu hút và hình minh họa AI
+# Ưu tiên tác động xã hội và hình minh họa AI
 
-Ưu tiên bổ sung: AI ảnh hưởng việc làm/Internet/quyền riêng tư; phát hiện khoa học; rủi ro có căn cứ; dự báo cần làm rõ điều kiện. Chỉ tăng tối đa 12 điểm, giữ nguyên ưu tiên lĩnh vực và tính đa dạng. Từ “sốc”, dấu chấm than hay lời hứa view không được cộng điểm. Không có dữ liệu view để dự đoán mức lan truyền.
+Ưu tiên đặc biệt cho tin về việc làm, thu nhập/chi phí sống, sức khỏe cộng đồng, giáo dục, an toàn/quyền riêng tư, môi trường/thiên tai và chính sách/dịch vụ thiết yếu. Phạm vi ảnh hưởng rộng và tính khẩn cấp được tăng trọng số; tổng điểm tác động tối đa 60. Khi có tin phù hợp, dành tối đa 4 vị trí đầu bản tin 10 tin cho nhóm tác động cao, có thể vượt giới hạn lĩnh vực thông thường. Vẫn loại trùng và giữ ưu tiên lĩnh vực ở các vị trí còn lại.
+
+Đây là gợi ý tự động theo từ khóa từ tiêu đề và mô tả RSS, không phải kết luận mức độ ảnh hưởng đã được kiểm chứng. Các từ “sốc”, “triệu lượt xem” hoặc dự báo đơn thuần không được cộng điểm. Dự báo được đánh dấu cần đọc điều kiện. Không có dữ liệu view để dự đoán lan truyền.
 
 Thêm RSS công nghệ VietnamNet và Dân Trí, đã kiểm tra HTTP 200 và có item. Quét lần lượt mọi nhóm nguồn, ba nguồn mỗi chu kỳ; 13 nguồn cần tối đa 15 phút để hoàn thành vòng thu thập.
 
