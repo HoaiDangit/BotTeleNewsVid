@@ -1,5 +1,7 @@
 // NewsAutoBear: private Telegram RSS assistant. No paid API fallback.
 export const FEEDS = [
+  ['VietnamNet','tech','https://vietnamnet.vn/rss/cong-nghe.rss'],
+  ['Dân Trí','tech','https://dantri.com.vn/rss/suc-manh-so.rss'],
   ['VnExpress','tech','https://vnexpress.net/rss/khoa-hoc-cong-nghe.rss'],
   ['BBC','tech','https://feeds.bbci.co.uk/news/technology/rss.xml'],
   ['BBC','business','https://feeds.bbci.co.uk/news/business/rss.xml'],
@@ -55,9 +57,17 @@ export function timeRange(spec='24h',now=Date.now(),endSpec){
   function day(x){const m=x.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);if(!m)throw Error('Dùng 24h, 7d hoặc dd/mm/yyyy | dd/mm/yyyy.');const t=Date.UTC(+m[3],+m[2]-1,+m[1]);if(iso(t).slice(0,10)!==m[3]+'-'+m[2]+'-'+m[1])throw Error('Ngày không hợp lệ.');return t-7*3600000;}
   const a=day(s),b=day(endSpec||s)+86400000-1;if(b<a||b-a>30*86400000)throw Error('Khoảng ngày không hợp lệ hoặc dài hơn 30 ngày.');return [a,Math.min(b,now)];
 }
+export function newsSignals(a){
+  const text=norm((a.title||'')+' '+(a.summary||''));const reasons=[];
+  if(/\b(ai|robot|deepfake|tri tue nhan tao|tu dong hoa)\b/.test(text)&&/\b(viec lam|that nghiep|gia mao|lua dao|quyen rieng tu|du lieu|internet|employment|jobs|privacy)\b/.test(text))reasons.push('AI và đời sống');
+  if(/\b(phat hien|phat minh|dot pha|breakthrough|discovery|research|nghien cuu)\b/.test(text))reasons.push('Khám phá hoặc nghiên cứu');
+  if(/\b(rui ro|canh bao|lo hong|ro ri|tan cong mang|warning|breach|vulnerability)\b/.test(text))reasons.push('Rủi ro đáng chú ý');
+  if(/\b(du bao|kich ban|du doan|forecast|prediction|could|may)\b/.test(text))reasons.push('Dự báo, cần đọc điều kiện');
+  return {bonus:Math.min(12,reasons.length*4),reasons};
+}
 export function rank(a,now=Date.now()){
   const priority={tech:35,business:30,economy:25,music:20,society:17,travel:14,environment:12,culture:10,world:8};
-  return (priority[a.category]||0)+(/\b(ai|artificial intelligence|tri tue nhan tao|gemini|openai)\b/.test(a.search)?14:0)+(/\b(viet nam|vietnam)\b/.test(a.search)?12:0)+Math.max(0,20-(now-a.published)/3600000);
+  return newsSignals(a).bonus+(priority[a.category]||0)+(/\b(ai|artificial intelligence|tri tue nhan tao|gemini|openai)\b/.test(a.search)?14:0)+(/\b(viet nam|vietnam)\b/.test(a.search)?12:0)+Math.max(0,20-(now-a.published)/3600000);
 }
 export function selectNews(rows,n=10,now=Date.now()){
   const sorted=[...rows].sort((a,b)=>rank(b,now)-rank(a,now)), selected=[], caps={tech:3,business:2,economy:1,music:1,society:1,travel:1,environment:1,culture:1,world:1}, counts={};
@@ -67,7 +77,7 @@ export function selectNews(rows,n=10,now=Date.now()){
   return selected;
 }
 async function collect(e,slot){
-  const start=(slot%4)*3,now=Date.now();
+  const start=(slot%Math.ceil(FEEDS.length/3))*3,now=Date.now();
   await Promise.allSettled(FEEDS.slice(start,start+3).map(async feed=>{
     try{const r=await fetch(feed[2],{signal:AbortSignal.timeout(9000),headers:{'User-Agent':'NewsAutoBear/1.0 (personal RSS reader)'}});if(!r.ok)throw Error('HTTP '+r.status);const body=await r.text();if(body.length>700000)throw Error('Feed too large');const rows=parseFeed(body,feed,now);if(!rows.length)throw Error('No recent items');await e.DB.batch(rows.map(a=>sql(e,'INSERT INTO articles(url,title,summary,search,source,category,published,collected,video) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(url) DO UPDATE SET title=excluded.title,summary=excluded.summary,search=excluded.search,collected=excluded.collected,video=excluded.video',a.url,a.title,a.summary,a.search,a.source,a.category,a.published,a.collected,a.video)));await put(e,'feed:'+feed[2],JSON.stringify({ok:true,time:now,count:rows.length}));}
     catch{await put(e,'feed:'+feed[2],JSON.stringify({ok:false,time:now}));}
@@ -84,7 +94,7 @@ async function gemini(e,prompt){
     if(!r.ok){await put(e,'ai_status','HTTP '+r.status+' lúc '+stamp(Date.now()));return null;}const j=await r.json();const answer=j.candidates?.[0]?.content?.parts?.filter(p=>!p.thought).map(p=>p.text||'').join('');await put(e,'ai_status','OK '+stamp(Date.now()));return answer?answer.replace(/https?:\/\/\S+/g,'[xem nguồn bên dưới]').slice(0,2100):null;
   }catch{await put(e,'ai_status','Tạm không khả dụng '+stamp(Date.now()));return null;}
 }
-function card(a,i){return (i+1)+'. ['+(LABEL[a.category]||a.category)+'] '+a.title+'\n'+(a.ai?'AI từ RSS: ':'')+(a.summary||'Nguồn chưa cung cấp mô tả.').slice(0,180)+'\n'+a.source+' · '+stamp(a.published)+'\n'+a.url+(a.video?'\nVideo: '+a.video:'');}
+function card(a,i){return (i+1)+'. ['+(LABEL[a.category]||a.category)+'] '+a.title+'\n'+(a.ai?'AI từ RSS: ':'')+(newsSignals(a).reasons.length?'Góc khai thác: '+newsSignals(a).reasons.join(' · ')+'\n':'')+(a.summary||'Nguồn chưa cung cấp mô tả.').slice(0,180)+'\n'+a.source+' · '+stamp(a.published)+'\n'+a.url+(a.video?'\nVideo: '+a.video:'');}
 function pages(rows,heading){const out=[];let text=heading+'\nTóm tắt từ RSS; cần đọc bài gốc trước khi xuất bản.\n';rows.forEach((a,i)=>{const c='\n'+card(a,i)+'\n';if(text.length+c.length>3800){out.push(text);text=heading+' (tiếp)\n';}text+=c;});out.push(text);return out;}
 async function query(e,term,spec,end){const [a,b]=timeRange(spec||'24h',Date.now(),end),terms=norm(term).split(' ').filter(Boolean).slice(0,8);return (await sql(e,'SELECT * FROM articles WHERE published BETWEEN ? AND ?'+terms.map(()=>" AND instr(' '||search||' ',?)>0").join('')+' ORDER BY published DESC LIMIT 400',a,b,...terms.map(t=>' '+t+' ')).all()).results;}
 async function digest(e,slot){
