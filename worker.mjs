@@ -58,12 +58,24 @@ export function timeRange(spec='24h',now=Date.now(),endSpec){
   const a=day(s),b=day(endSpec||s)+86400000-1;if(b<a||b-a>30*86400000)throw Error('Khoảng ngày không hợp lệ hoặc dài hơn 30 ngày.');return [a,Math.min(b,now)];
 }
 export function newsSignals(a){
-  const text=norm((a.title||'')+' '+(a.summary||''));const reasons=[];
-  if(/\b(ai|robot|deepfake|tri tue nhan tao|tu dong hoa)\b/.test(text)&&/\b(viec lam|that nghiep|gia mao|lua dao|quyen rieng tu|du lieu|internet|employment|jobs|privacy)\b/.test(text))reasons.push('AI và đời sống');
-  if(/\b(phat hien|phat minh|dot pha|breakthrough|discovery|research|nghien cuu)\b/.test(text))reasons.push('Khám phá hoặc nghiên cứu');
-  if(/\b(rui ro|canh bao|lo hong|ro ri|tan cong mang|warning|breach|vulnerability)\b/.test(text))reasons.push('Rủi ro đáng chú ý');
-  if(/\b(du bao|kich ban|du doan|forecast|prediction|could|may)\b/.test(text))reasons.push('Dự báo, cần đọc điều kiện');
-  return {bonus:Math.min(12,reasons.length*4),reasons};
+  const text=norm((a.title||'')+' '+(a.summary||'')),reasons=[];let impact=0;
+  const groups=[
+    [/\b(viec lam|mat viec|that nghiep|cat giam nhan su|sa thai|labor market|layoffs|unemployment|jobs)\b/,18,'việc làm'],
+    [/\b(thu nhap|tien luong|chi phi sinh hoat|gia dien|gia xang|lam phat|an sinh|cost of living|inflation|wages)\b/,18,'thu nhập và chi phí sống'],
+    [/\b(suc khoe|dich benh|benh vien|vaccine|vaccination|outbreak|public health|healthcare)\b/,18,'sức khỏe cộng đồng'],
+    [/\b(giao duc|hoc phi|hoc sinh|sinh vien|education|school|tuition)\b/,15,'giáo dục'],
+    [/\b(quyen rieng tu|ro ri du lieu|danh cap du lieu|lua dao|deepfake|data breach|privacy|fraud)\b/,18,'an toàn và quyền riêng tư'],
+    [/\b(thien tai|lu lut|dong dat|bao lu|o nhiem|nuoc sach|han han|bien doi khi hau|disaster|flood|earthquake|pollution|drought|climate change)\b/,20,'môi trường và an toàn cộng đồng'],
+    [/\b(chinh sach|luat moi|bao hiem|dich vu cong|public services|legislation|social security)\b/,15,'chính sách và dịch vụ thiết yếu']
+  ];
+  for(const [pattern,points,label] of groups)if(pattern.test(text)){impact+=points;reasons.push('Ảnh hưởng xã hội: '+label);}
+  const broad=/\b(hang trieu|trieu nguoi|hang ngan|toan quoc|toan cau|dien rong|cong dong|million|thousands|nationwide|worldwide|global|widespread)\b/.test(text);
+  const urgent=/\b(khan cap|so tan|canh bao do|emergency|evacuation)\b/.test(text);
+  if(impact&&broad){impact+=20;reasons.push('Phạm vi ảnh hưởng rộng');}
+  if(impact&&urgent){impact+=15;reasons.push('Cần chú ý khẩn cấp');}
+  const forecast=/\b(du bao|kich ban|du doan|forecast|prediction|could|may)\b/.test(text);
+  if(forecast)reasons.push('Dự báo, cần đọc điều kiện');
+  return {bonus:Math.min(60,impact),highImpact:impact>=30,reasons};
 }
 export function rank(a,now=Date.now()){
   const priority={tech:35,business:30,economy:25,music:20,society:17,travel:14,environment:12,culture:10,world:8};
@@ -72,6 +84,7 @@ export function rank(a,now=Date.now()){
 export function selectNews(rows,n=10,now=Date.now()){
   const sorted=[...rows].sort((a,b)=>rank(b,now)-rank(a,now)), selected=[], caps={tech:3,business:2,economy:1,music:1,society:1,travel:1,environment:1,culture:1,world:1}, counts={};
   const duplicate=a=>selected.some(b=>{const x=new Set(norm(a.title).split(' ')),y=new Set(norm(b.title).split(' ')), common=[...x].filter(w=>y.has(w)).length;return a.url===b.url||common/Math.max(x.size,y.size)>.72;});
+  for(const a of sorted.filter(a=>newsSignals(a).highImpact)){if(selected.length>=Math.ceil(n*0.4))break;if(duplicate(a))continue;selected.push(a);counts[a.category]=(counts[a.category]||0)+1;}
   for(const a of sorted){if(selected.length>=n)break;if((counts[a.category]||0)>=(caps[a.category]||1)||duplicate(a))continue;selected.push(a);counts[a.category]=(counts[a.category]||0)+1;}
   for(const a of sorted){if(selected.length>=n)break;if(!duplicate(a))selected.push(a);}
   return selected;
