@@ -1,6 +1,6 @@
 async function accessCommand(e,id,owner,text){
  const [cmd,arg]=text.split(/\s+/);
- if(id!==owner){await send(e,id,'Chỉ quản trị viên được thay đổi danh sách tài khoản.');return;}
+ if(id!==owner){await send(e,id,'Tài khoản này chưa phải quản trị viên. Gửi /myid để lấy Telegram ID và yêu cầu chủ bot xác lập lại quyền.');return;}
  if(cmd==='/users'){
   const rows=(await sql(e,"SELECT k FROM state WHERE k LIKE 'access:%' ORDER BY k").all()).results;
   await send(e,id,'Quản trị viên: '+owner+'\nĐược phép:\n'+(rows.map(r=>r.k.slice(7)).join('\n')||'(chưa có)')+'\n\n/allow <ID> — thêm\n/deny <ID> — xóa\nNgười dùng gửi /myid cho bot để lấy ID.');return;
