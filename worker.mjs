@@ -132,7 +132,7 @@ async function handle(e,u){
   const claimed=await sql(e,'INSERT OR IGNORE INTO updates(id,created,status) VALUES(?,?,?)',u.update_id,Date.now(),'processing').run();if(!claimed.meta.changes)return;
   try{
     const cmd=text.split(/\s/)[0].split('@')[0];
-    if(cmd==='/myid')await send(e,id,'Telegram ID của bạn: '+id+'\nGửi ID này cho quản trị viên để được thêm vào danh sách.');
+    if(cmd==='/myid')await send(e,id,'Telegram ID của bạn: '+id+'\nVai trò: '+(id===owner?'quản trị viên':await get(e,'access:'+id)?'thành viên được phép':'chưa được cấp quyền')+'\nUsername không thay thế ID dạng số khi cấp quyền.');
     else if(['/allow','/deny','/users'].includes(cmd))await accessCommand(e,id,owner,text);
     else if(owner!==id&&!await get(e,'access:'+id))await send(e,id,'Bot dùng danh sách được phép. Gửi /myid rồi chuyển ID cho quản trị viên để xin quyền truy cập.');
     else if(cmd==='/video'||cmd==='/video_status'||cmd==='/check_status')await videoCommand(e,id,text,u.update_id);
