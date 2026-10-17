@@ -39,6 +39,7 @@ async function videoAPI(request,e,ctx) {
   if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.1.0'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
+  if(route==='/render/admin')return await adminSetup(e,await request.json());
   if(route==='/render/menu')return json(await syncMenu(e));
   if(route==='/render/audit')return json(await auditBot(e,(await request.json()).probeAI===true));
   if(route==='/render/claim') {
