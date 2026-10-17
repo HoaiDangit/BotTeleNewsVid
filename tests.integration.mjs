@@ -57,7 +57,7 @@ test('scheduled collection, private pairing, timed digest, duplicate protection 
     }
 
     await message(200,999,'/myid');assert.match(sent.at(-1).text,/999/);
-    await message(201,999,'/allow 777');assert.match(sent.at(-1).text,/Chỉ quản trị viên/);
+    await message(201,999,'/allow 777');assert.match(sent.at(-1).text,/chưa phải quản trị viên/);
     assert.equal(await env.DB.prepare("SELECT v FROM state WHERE k='access:777'").first(),null);
     await message(202,123,'/allow 999');assert.ok(await env.DB.prepare("SELECT v FROM state WHERE k='access:999'").first());
     await message(203,999,'/tin');assert.match(sent.at(-1).text,/TIN TRONG KHO/);
