@@ -34,13 +34,13 @@ test('scheduled collection, private pairing, timed digest, duplicate protection 
     async function message(id,chat,text){const response=await worker.fetch(new Request('https://bot.example/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':secret},body:JSON.stringify({update_id:id,message:{chat:{id:chat,type:'private'},text}})}),env,context);assert.equal(response.status,200);await Promise.all(pending);pending=[];}
     await message(1,123,'/start wrong');assert.equal(sent.length,0);
     await message(2,123,'/start '+code);assert.equal(sent.length,1);
-    await message(3,999,'/tin');assert.equal(sent.length,1);
+    await message(3,999,'/tin');assert.equal(sent.length,2);assert.match(sent.at(-1).text,/danh sách được phép/);
     await message(4,123,'/tim AI | 24h');assert.ok(sent.length>1);const before=sent.length;
     await message(4,123,'/tim AI | 24h');assert.equal(sent.length,before);
     await worker.scheduled({scheduledTime:Date.parse('2026-10-14T00:00:00Z')},env,{});
     const edition=await env.DB.prepare("SELECT * FROM editions WHERE id LIKE '%:am'").first();assert.equal(edition.status,'sent');assert.equal(JSON.parse(edition.urls).length,10);
     const after=sent.length;await worker.scheduled({scheduledTime:Date.parse('2026-10-14T00:00:00Z')},env,{});assert.equal(sent.length,after);
-    assert.ok(sent.every(x=>String(x.chat_id)==='123'&&x.text.length<=4000));
+    assert.ok(sent.every(x=>['123','999'].includes(String(x.chat_id))&&x.text.length<=4000));
     const checks=[
       ['/start','NewsAutoBear'],['/help','/check_status'],['/tin','TIN TRONG KHO'],
       ['/tim','Ví dụ: /tim'],['/hoi','Ví dụ: /hoi'],['/hoi AI | 24h','Nguồn RSS'],
@@ -55,5 +55,16 @@ test('scheduled collection, private pairing, timed digest, duplicate protection 
       assert.ok(sent.slice(n).some(m=>m.text.includes(checks[i][1])),checks[i][0]+' wrong reply');
       assert.equal((await env.DB.prepare('SELECT status FROM updates WHERE id=?').bind(100+i).first()).status,checks[i][0]==='/tim'?'failed':'done',checks[i][0]);
     }
+
+    await message(200,999,'/myid');assert.match(sent.at(-1).text,/999/);
+    await message(201,999,'/allow 777');assert.match(sent.at(-1).text,/Chỉ quản trị viên/);
+    assert.equal(await env.DB.prepare("SELECT v FROM state WHERE k='access:777'").first(),null);
+    await message(202,123,'/allow 999');assert.ok(await env.DB.prepare("SELECT v FROM state WHERE k='access:999'").first());
+    await message(203,999,'/tin');assert.match(sent.at(-1).text,/TIN TRONG KHO/);
+    await message(204,123,'/deny 123');assert.ok(await env.DB.prepare("SELECT v FROM state WHERE k='owner'").first());
+    await message(205,123,'/users');assert.match(sent.at(-1).text,/999/);
+    await message(206,999,'/video https://example.org/1');assert.equal((await env.DB.prepare("SELECT chat FROM video_jobs WHERE id='v206'").first()).chat,'999');
+    await message(207,123,'/deny 999');assert.equal(await env.DB.prepare("SELECT v FROM state WHERE k='access:999'").first(),null);assert.equal((await env.DB.prepare("SELECT status FROM video_jobs WHERE id='v206'").first()).status,'cancelled');
+    await message(208,999,'/tin');assert.match(sent.at(-1).text,/danh sách được phép/);
   }finally{globalThis.fetch=realFetch;}
 });
