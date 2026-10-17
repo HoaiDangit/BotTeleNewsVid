@@ -15,7 +15,7 @@ export const FEEDS = [
   ['BBC','world','https://feeds.bbci.co.uk/news/world/rss.xml']
 ];
 const LABEL = {tech:'Công nghệ/AI',business:'Kinh doanh thế giới',economy:'Kinh tế',music:'Âm nhạc',society:'Xã hội',travel:'Du lịch',environment:'Môi trường',culture:'Văn hóa',world:'Quốc tế'};
-const HELP = 'NewsAutoBear — 10 tin lúc 07:00 và 20:00 (Việt Nam).\n/tin — 10 tin mới ưu tiên\n/tim AI | 24h\n/tim kinh tế | 01/10/2026 | 14/10/2026\n/hoi AI ảnh hưởng Việt Nam thế nào? | 7d\n/sang /toi — xem lại bản tin\n/video <link bài báo> — tạo video trên máy\n/check_status — máy dựng và tiến độ video\n/nguon — nguồn theo dõi\n/trangthai — tình trạng\nTìm kiếm trong kho tin đã thu thập, giữ 30 ngày. Tóm tắt RSS chưa thay thế việc đọc bài gốc.';
+const HELP = 'NewsAutoBear — 10 tin lúc 07:00 và 20:00 (Việt Nam).\n/tin — 10 tin mới ưu tiên\n/tim AI | 24h\n/tim kinh tế | 01/10/2026 | 14/10/2026\n/hoi AI ảnh hưởng Việt Nam thế nào? | 7d\n/sang /toi — xem lại bản tin\n/video <link bài báo> — tạo video trên máy\n/check_status — máy dựng và tiến độ video\n/myid — Telegram ID của bạn\n/nguon — nguồn theo dõi\n/trangthai — tình trạng\nTìm kiếm trong kho tin đã thu thập, giữ 30 ngày. Tóm tắt RSS chưa thay thế việc đọc bài gốc.';
 export const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const xmlText = s => String(s||'').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/<[^>]*>/g,' ').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{const v=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return v>0&&v<=0x10ffff?String.fromCodePoint(v):'';}).replace(/&(amp|lt|gt|quot|apos|nbsp);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '})[n]).replace(/\s+/g,' ').trim();
 const tag = (s,n) => (s.match(new RegExp('<'+n+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+n+'>','i'))||[])[1]||'';
@@ -129,11 +129,13 @@ async function digest(e,slot){
 async function handle(e,u){
   const m=u.message;if(!m?.text||m.chat.type!=='private')return;const text=m.text.trim().slice(0,2000).replace(/^(\/[a-z_]+)@\w+\b/i,'$1'),id=String(m.chat.id);let owner=await get(e,'owner');
   if(!owner){const pairing=await get(e,'pair');if(!pairing)return;const p=JSON.parse(pairing);if(text==='/start '+p.code&&Date.now()<p.expires){await sql(e,"INSERT OR IGNORE INTO state(k,v) VALUES('owner',?)",id).run();owner=await get(e,'owner');if(owner===id){await sql(e,"DELETE FROM state WHERE k='pair'").run();await send(e,id,'Đã ghép nối riêng tư.\n'+HELP);}}return;}
-  if(owner!==id)return;
   const claimed=await sql(e,'INSERT OR IGNORE INTO updates(id,created,status) VALUES(?,?,?)',u.update_id,Date.now(),'processing').run();if(!claimed.meta.changes)return;
   try{
     const cmd=text.split(/\s/)[0].split('@')[0];
-    if(cmd==='/video'||cmd==='/video_status'||cmd==='/check_status')await videoCommand(e,id,text,u.update_id);
+    if(cmd==='/myid')await send(e,id,'Telegram ID của bạn: '+id+'\nGửi ID này cho quản trị viên để được thêm vào danh sách.');
+    else if(['/allow','/deny','/users'].includes(cmd))await accessCommand(e,id,owner,text);
+    else if(owner!==id&&!await get(e,'access:'+id))await send(e,id,'Bot dùng danh sách được phép. Gửi /myid rồi chuyển ID cho quản trị viên để xin quyền truy cập.');
+    else if(cmd==='/video'||cmd==='/video_status'||cmd==='/check_status')await videoCommand(e,id,text,u.update_id);
     else if(cmd==='/start'||cmd==='/help')await send(e,id,HELP);
     else if(cmd==='/nguon')await send(e,id,FEEDS.map(f=>f[0]+' / '+LABEL[f[1]]+'\n'+f[2]).join('\n\n'));
     else if(cmd==='/trangthai'){const total=await sql(e,'SELECT COUNT(*) AS n FROM articles').first(),last=await get(e,'last_collect'),failed=await sql(e,"SELECT COUNT(*) AS n FROM editions WHERE status!='sent'").first();await send(e,id,'Kho tin: '+total.n+' bài.\nLần quét: '+(last?stamp(+last):'chưa có')+'\nAI: '+(e.AI_ENABLED==='true'?(await get(e,'ai_status')||'chưa gọi'):'chưa bật; cần xác nhận API Free Tier')+'\nBản tin cần kiểm tra gửi: '+failed.n+'\nLịch 07:00 / 20:00 Việt Nam. Kiểm tra từng nhóm nguồn mỗi 3 phút, vòng đầy đủ 12 phút.');}
