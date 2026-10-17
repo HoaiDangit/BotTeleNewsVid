@@ -10,11 +10,13 @@ function socialPost(a,answer){
  return 'BẢN NHÁP BÀI ĐĂNG — cần duyệt dữ kiện và nhận xét\n\n'+text.slice(0,2100)+'\n\nNguồn [1]: '+a.url+'\nBài viết mang tính tham khảo từ nguồn trên, chưa được đối chiếu độc lập.\n\n'+SOCIAL_FEEDBACK;
 }
 async function prepareSocial(e,id,job,a){
+ if(id!==await get(e,'owner')&&!await get(e,'access:'+id))return;
  const key='social:'+job;
  if(await get(e,key))return;
  const answer=await gemini(e,socialPrompt(a));
  const post=socialPost(a,answer);
  if(!post){await send(e,id,'Bài đăng kèm video '+job+' chưa tạo được hoặc chưa đạt kiểm tra. Không dùng nội dung thay thế chưa kiểm chứng; video vẫn xử lý riêng.');return;}
+ if(id!==await get(e,'owner')&&!await get(e,'access:'+id))return;
  await put(e,key,JSON.stringify({text:post,created:Date.now(),status:'sending'}));
  try{await send(e,id,post);await put(e,key,JSON.stringify({text:post,created:Date.now(),status:'sent'}));}catch{await put(e,key,JSON.stringify({text:post,created:Date.now(),status:'uncertain'}));}
 }
