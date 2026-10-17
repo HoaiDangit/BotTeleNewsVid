@@ -9,13 +9,15 @@ const BOT_COMMANDS=[
   {command:'trangthai',description:'Kiểm tra kho tin và dịch vụ AI'},
   {command:'nguon',description:'Danh sách nguồn báo đang theo dõi'},
   {command:'help',description:'Hướng dẫn và ví dụ dùng lệnh'},
-  {command:'start',description:'Bắt đầu hoặc xem hướng dẫn'}
+  {command:'start',description:'Bắt đầu hoặc xem hướng dẫn'},
+  {command:'myid',description:'Lấy Telegram ID để xin quyền truy cập'}
 ];
 async function syncMenu(e) {
   const owner=await get(e,'owner');
   const scopes=[{type:'default'},{type:'all_private_chats'},...(owner?[{type:'chat',chat_id:owner}]:[])];
   for(const scope of scopes)for(const language_code of ['', 'vi','en'])await telegram(e,'setMyCommands',{commands:BOT_COMMANDS,scope,language_code});
   await telegram(e,'setChatMenuButton',{menu_button:{type:'commands'}});
+  if(owner)for(const language_code of ['', 'vi','en'])await telegram(e,'setMyCommands',{commands:[...BOT_COMMANDS,{command:'allow',description:'Thêm tài khoản được phép'},{command:'deny',description:'Thu hồi quyền tài khoản'},{command:'users',description:'Danh sách tài khoản được phép'}],scope:{type:'chat',chat_id:owner},language_code});
   if(owner)await telegram(e,'setChatMenuButton',{chat_id:owner,menu_button:{type:'commands'}});
   return {ok:true,commands:await telegram(e,'getMyCommands',{scope:{type:'default'},language_code:''}),ownerCommands:owner?await telegram(e,'getMyCommands',{scope:{type:'chat',chat_id:owner},language_code:'vi'}):[],menuButton:await telegram(e,'getChatMenuButton',owner?{chat_id:owner}:{})};
 }
