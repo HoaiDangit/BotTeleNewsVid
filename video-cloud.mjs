@@ -67,6 +67,7 @@ async function videoAPI(request,e,ctx) {
     return json({ok:true});
   }
   if(route==='/render/upload') {
+    if(job.chat!==await get(e,'owner')&&!await get(e,'access:'+job.chat))return json({error:'Access revoked'},403);
     const length=Number(request.headers.get('content-length'));
     if(!Number.isInteger(length)||length<1||length>49000000||!request.body)return json({error:'Video must be 1–49,000,000 bytes'},413);
     const completed=Date.now(),filename=videoFilename(job.title,completed);
