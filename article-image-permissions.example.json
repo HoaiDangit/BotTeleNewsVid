@@ -1,0 +1,10 @@
+[
+  {
+    "article": "https://example.com/article",
+    "url": "https://images.example.com/permitted-photo.jpg",
+    "allowedHost": "images.example.com",
+    "author": "Tên tác giả/chủ quyền ảnh",
+    "authorized": false,
+    "permissionEvidence": "Đường dẫn giấy phép hoặc mã văn bản đồng ý; ghi điều kiện thương mại, chỉnh sửa, ghi công"
+  }
+]
