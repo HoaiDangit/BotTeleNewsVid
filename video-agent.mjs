@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {licensedImages} from './licensed-images.mjs';
 import {pidAlive,agentAlive} from './runtime-status.mjs';
 import {editorialRequest,saveReview,POLICY_VERSION} from './editorial-policy.mjs';
 import path from 'node:path';
@@ -81,7 +82,8 @@ async function processJob(config,job,resume) {
   }
   if(!resume){state={job,phase:'starting',marker:'[NewsAutoBear '+job.id+']'};save(state);
     state.editorialPolicy=POLICY_VERSION;save(state);
-    const r=await fetch(config.studio+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(editorialRequest(job,state.marker)),signal:AbortSignal.timeout(30000)});
+    state.media=await licensedImages(config,job);save(state);
+    const r=await fetch(config.studio+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(editorialRequest(job,state.marker,state.media)),signal:AbortSignal.timeout(30000)});
     if(!r.ok)throw Error('Ứng dụng chưa nhận yêu cầu (HTTP '+r.status+')');
     state.phase='rendering';save(state);log('Đang dựng '+job.id);
   }
