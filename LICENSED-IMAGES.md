@@ -9,3 +9,11 @@ Mặc định: tìm ảnh Wikimedia Commons theo chủ đề (AI/robot, chip, n�
 Ảnh được đưa vào Studio bằng /api/user-images và chỉ chạy visualMode=user-only. Sau khi render, hash ảnh kế hoạch dựng phải trùng manifest mới được duyệt. IMAGE-CREDITS.txt và editorial-review.json nằm cạnh bản video giao trong videos/telegram/<job>. Tệp ghi công hiện lưu trên máy, chưa tự gửi kèm Telegram; cần lấy nội dung tệp để đăng kèm khi giấy phép yêu cầu. CC0/Public domain vẫn có thể liên quan quyền hình ảnh cá nhân, nhãn hiệu và các hạn chế khác.
 
 Thay đổi chỉ áp dụng cho lượt dựng mới sau khi khởi động lại cầu nối; không can thiệp lượt đang chạy. Ảnh upload được giữ trong kho Studio và có giới hạn dung lượng/số lượng sẵn có; nếu kho đầy sẽ bỏ qua ảnh, vẫn dựng chữ.
+
+## Phác họa khi thiếu ảnh
+
+Mỗi video nhận tối đa hai ảnh. Nếu không nhập được ảnh có phép nào, vẽ hai PNG phác họa chủ đề trên máy bằng SketchRenderer.exe. Không gọi API tạo ảnh, không thêm phí. Đây là vẽ theo mẫu hình học cho công nghệ, sức khỏe, giáo dục, môi trường, kinh tế, du lịch, âm nhạc hoặc xã hội; không tự tái hiện chính xác sự kiện hay chân dung trong bài. Nhãn minh họa được vẽ thẳng vào PNG. Có dấu “Kịch bản giả định” khi nhận diện dự báo. Nếu chỉ tìm được một ảnh có phép thì dùng một ảnh, không bắt buộc bổ sung.
+
+SketchRenderer.exe biên dịch từ SketchRenderer.cs, cần .NET Framework/System.Drawing của Windows. Chạy build-sketch.cmd nếu clone repo sang máy khác. EXE không commit; giữ cạnh sketch-images.mjs. Nếu không vẽ/nhập ảnh được thì lưu sketchError trong manifest và video vẫn có thể dựng chữ.
+
+Cơ chế gán ảnh hiện dùng ảnh cho các cảnh đầu có ảnh; các cảnh sau vẫn là chữ/đồ họa, chưa tự phân bố hai ảnh phủ toàn bộ thời lượng.
