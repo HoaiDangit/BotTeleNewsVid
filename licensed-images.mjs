@@ -1,3 +1,4 @@
+import {drawSketch} from './sketch-images.mjs';
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';
 const clean=s=>String(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
 const normalized=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase();
@@ -24,7 +25,7 @@ export async function licensedImages(config,job){
  const archive=path.join(config.appRoot,'teleSetup','.bridge','media',job.id);
  if(!/^v\d+$/.test(job.id))throw Error('Invalid job ID');
  fs.mkdirSync(archive,{recursive:true});
- const manifest={job:job.id,article:job.url,created:new Date().toISOString(),assets:[],notice:'Chỉ CC0/Public domain; cần duyệt độ liên quan và quyền hình ảnh cá nhân/nhãn hiệu. Không xác nhận quyền pháp lý tuyệt đối.'};
+ const manifest={job:job.id,article:job.url,created:new Date().toISOString(),assets:[],notice:'CC0/Public domain, ảnh có phép hoặc phác họa tạo trên máy; cần duyệt độ liên quan và quyền hình ảnh cá nhân/nhãn hiệu. Không xác nhận quyền pháp lý tuyệt đối.'};
  const query=imageQuery(job);let candidates=[];
  try{
   if(query){
@@ -41,7 +42,8 @@ export async function licensedImages(config,job){
     candidates.unshift({url:p.url,sourcePage:p.article,license:'Permission recorded by owner',author:p.author,permissionEvidence:p.permissionEvidence,purpose:'Ảnh bài báo được ghi nhận quyền sử dụng'});
    }
   }
-  for(const a of candidates.slice(0,3)){
+  for(const a of candidates.slice(0,6)){
+   if(manifest.assets.length>=2)break;
    try{
     const r=await fetch(a.url,{redirect:'error',signal:AbortSignal.timeout(15000)});
     if(!/^image\/(jpeg|png|webp)(;|$)/.test(r.headers.get('content-type')||'')){await r.body?.cancel();continue;}
@@ -56,5 +58,16 @@ export async function licensedImages(config,job){
    }catch{/* Leave the scene empty rather than download an unlicensed substitute. */}
   }
  }catch(err){manifest.error='Không lấy được ảnh có giấy phép: '+err.message;}
+ if(manifest.assets.length===0){
+  for(let variant=0;variant<2;variant++)try{
+   const {bytes,plan}=await drawSketch(job,archive,variant);
+   const upload=await fetch(config.studio+'/api/user-images?name=sketch-'+job.id+'-'+variant,{method:'POST',headers:{'Content-Type':'image/png'},body:bytes,signal:AbortSignal.timeout(12000)});
+   if(!upload.ok)throw Error('Studio upload HTTP '+upload.status);const result=await upload.json();
+   if(!/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(result.id||''))throw Error('Invalid upload ID');
+   const sha256=crypto.createHash('sha256').update(bytes).digest('hex');
+   fs.writeFileSync(path.join(archive,result.id),bytes);
+   manifest.assets.push({id:result.id,sha256,title:plan.heading,author:'NewsAutoBear — vẽ bằng chương trình trên máy',license:'Local procedural sketch',sourcePage:job.url,purpose:'Phác họa minh họa, không phải ảnh sự kiện',theme:plan.theme,forecast:plan.forecast,retrieved:new Date().toISOString()});
+  }catch(err){manifest.sketchError='Không tạo được phác họa: '+err.message;}
+ }
  fs.writeFileSync(path.join(archive,'manifest.json'),JSON.stringify(manifest,null,2));return manifest;
 }
