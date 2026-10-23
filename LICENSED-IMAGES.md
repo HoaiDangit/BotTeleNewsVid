@@ -14,9 +14,9 @@ Thay đổi chỉ áp dụng cho lượt dựng mới sau khi khởi động l�
 
 Mỗi video nhận tối đa hai ảnh. Nếu không nhập được ảnh có phép nào, vẽ hai PNG phác họa chủ đề trên máy bằng SketchRenderer.exe. Không gọi API tạo ảnh, không thêm phí. Đây là vẽ theo mẫu hình học cho công nghệ, sức khỏe, giáo dục, môi trường, kinh tế, du lịch, âm nhạc hoặc xã hội; không tự tái hiện chính xác sự kiện hay chân dung trong bài. Nhãn minh họa được vẽ thẳng vào PNG. Có dấu “Kịch bản giả định” khi nhận diện dự báo. Nếu chỉ tìm được một ảnh có phép thì dùng một ảnh, không bắt buộc bổ sung.
 
-SketchRenderer.exe biên dịch từ SketchRenderer.cs, cần .NET Framework/System.Drawing của Windows. Chạy build-sketch.cmd nếu clone repo sang máy khác. EXE không commit; giữ cạnh sketch-images.mjs. Nếu không vẽ/nhập ảnh được thì lưu sketchError trong manifest và video vẫn có thể dựng chữ.
+SketchRenderer.exe biên dịch từ SketchRenderer.cs, cần .NET Framework/System.Drawing của Windows. Chạy build-sketch.cmd nếu clone repo sang máy khác. EXE không commit; giữ cạnh sketch-images.mjs. Nếu không vẽ/nhập ảnh được thì lưu sketchError trong manifest và dừng giao video để tránh bản chỉ có chữ.
 
-Cơ chế gán ảnh hiện dùng ảnh cho các cảnh đầu có ảnh; các cảnh sau vẫn là chữ/đồ họa, chưa tự phân bố hai ảnh phủ toàn bộ thời lượng.
+Bản media-v3 luân phiên một hoặc hai ảnh qua toàn bộ cảnh, phủ toàn bộ thời lượng video Telegram.
 
 ## Cài đặt bản media-v3 (23/10/2026)
 
@@ -26,6 +26,6 @@ Studio cho Telegram chạy tại localhost:4010, cấu hình .bridge/config.json
 
 install-media.mjs thêm thay đổi giới hạn trong scripts/ui-server.mjs và src/components/FreeStyleScene.tsx, lưu bản trước tại .bridge/studio-backups. Chỉ video có marker NewsAutoBear và user-only luân phiên 1–2 ảnh cho mọi cảnh. Các video/UI khác giữ cách gán ảnh cũ. Panel ảnh sáng, chuyển động zoom nhẹ, không dùng lớp phủ nền tối; dành vùng riêng cho phụ đề. Không có ảnh hoặc còn cảnh thiếu ảnh hợp lệ thì chưa giao video, thay vì âm thầm gửi chỉ chữ.
 
-Cloud Worker có kiểm tra X-Runtime-Version=media-v3 ở /render/claim. Cần triển khai Worker này mới chặn được cầu nối cũ nhận công việc; GitHub không tự deploy. Phiên Cloudflare hết đăng nhập trong lần sửa này, nên phải xác nhận triển khai sau đăng nhập lại.
+Cloud Worker có kiểm tra X-Runtime-Version=media-v3 ở /render/claim. Đã triển khai Worker phiên bản bc4acf47 trên Cloudflare sau khi đăng nhập lại. /render/ping trả phiên bản 1.3.0-media; yêu cầu claim không có phiên bản runtime mới trả HTTP 426. GitHub không tự deploy.
 
 Đã dựng MP4 1045 khung/30 fps (khoảng 35 giây), tái dùng kịch bản/giọng đọc video gần nhất và gắn hai phác họa an toàn ngân hàng. Đã xem khung 3s/12s/28s, không che phụ đề. Đây là kiểm tra dựng bằng spec, chưa phải yêu cầu Telegram mới hoàn tất từ đầu tới cuối. Bản kiểm tra ở .bridge/proof/video-with-images-v2.mp4.
