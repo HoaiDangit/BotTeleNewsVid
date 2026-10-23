@@ -15,7 +15,7 @@ class Launcher : Form {
   status.Multiline=true;status.ReadOnly=true;status.ScrollBars=ScrollBars.Vertical;status.SetBounds(20,20,650,260);status.Anchor=AnchorStyles.Top|AnchorStyles.Left|AnchorStyles.Right|AnchorStyles.Bottom;
   start.Text="Khởi động";start.SetBounds(20,295,135,38);start.Click+=(s,e)=>Run("--start");
   refresh.Text="Kiểm tra lại";refresh.SetBounds(165,295,135,38);refresh.Click+=(s,e)=>Run("--status");
-  var open=new Button();open.Text="Mở Studio";open.SetBounds(310,295,135,38);open.Click+=(s,e)=>Process.Start("http://127.0.0.1:4000");
+  var open=new Button();open.Text="Mở Studio";open.SetBounds(310,295,135,38);open.Click+=(s,e)=>Process.Start("http://127.0.0.1:4010");
   var logs=new Button();logs.Text="Mở nhật ký";logs.SetBounds(455,295,135,38);logs.Click+=(s,e)=>Process.Start("explorer.exe","\""+Path.Combine(root,".bridge")+"\"");
   var hint=new Label();hint.Text="Đóng cửa sổ này không tắt Studio hoặc cầu nối. Trạng thái tự cập nhật mỗi 10 giây.";hint.SetBounds(20,345,650,28);
   Controls.AddRange(new Control[]{status,start,refresh,open,logs,hint});
