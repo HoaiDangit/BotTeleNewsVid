@@ -38,6 +38,7 @@ export function saveReview(appRoot,state){
  const approved=[];
  for(const scene of plan.scenes||[]){if(!scene.image)continue;const file=path.resolve(appRoot,'public',scene.image),publicRoot=path.resolve(appRoot,'public')+path.sep;if(!file.startsWith(publicRoot))continue;try{const hash=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');if(state.media?.assets.some(a=>a.sha256===hash))approved.push(scene.image);}catch{}}
  const report=reviewScript(state.job,plan,approved);report.media=state.media||{assets:[]};
+ if(state.media?.assets.length&&(plan.scenes||[]).some(s=>!s.image||!approved.includes(s.image))){report.errors.push('Có cảnh chưa gắn ảnh minh họa hợp lệ; chưa giao video.');report.status='blocked';}
  const dest=path.join(appRoot,'videos','telegram',state.job.id);fs.mkdirSync(dest,{recursive:true});
  fs.writeFileSync(path.join(dest,'IMAGE-CREDITS.txt'),(state.media?.assets||[]).map(a=>[a.title||'Ảnh được cho phép',a.author,a.sourcePage,a.license,a.licenseUrl||a.permissionEvidence,a.purpose].filter(Boolean).join(' | ')).join('\n'));
  fs.writeFileSync(path.join(dest,'editorial-review.json'),JSON.stringify(report,null,2));
