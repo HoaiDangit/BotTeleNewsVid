@@ -43,6 +43,7 @@ async function videoAPI(request,e,ctx) {
   if(route==='/render/menu')return json(await syncMenu(e));
   if(route==='/render/audit')return json(await auditBot(e,(await request.json()).probeAI===true));
   if(route==='/render/claim') {
+    if(request.headers.get('x-runtime-version')!=='media-v3')return json({error:'Update required: start teleSetup media-v3 on the PC'},426);
     await put(e,'video_agent_seen',Date.now());
     await sql(e,"UPDATE video_jobs SET status='uncertain',progress='Phiên gửi gián đoạn; kiểm tra Telegram trước khi gửi lại.' WHERE status='uploading' AND finished<?",Date.now()-10*60000).run();
     // A disconnected renderer keeps ownership; never automatically render twice.
