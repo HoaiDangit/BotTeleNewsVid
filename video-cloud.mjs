@@ -36,7 +36,7 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.1.0'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.3.0-media'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
   if(route==='/render/admin')return await adminSetup(e,await request.json());
