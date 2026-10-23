@@ -17,3 +17,15 @@ Mỗi video nhận tối đa hai ảnh. Nếu không nhập được ảnh có p
 SketchRenderer.exe biên dịch từ SketchRenderer.cs, cần .NET Framework/System.Drawing của Windows. Chạy build-sketch.cmd nếu clone repo sang máy khác. EXE không commit; giữ cạnh sketch-images.mjs. Nếu không vẽ/nhập ảnh được thì lưu sketchError trong manifest và video vẫn có thể dựng chữ.
 
 Cơ chế gán ảnh hiện dùng ảnh cho các cảnh đầu có ảnh; các cảnh sau vẫn là chữ/đồ họa, chưa tự phân bố hai ảnh phủ toàn bộ thời lượng.
+
+## Cài đặt bản media-v3 (23/10/2026)
+
+Nguồn trên GitHub và tiến trình đã nạp trên máy là hai trạng thái khác nhau. Dashboard hiện thêm phiên bản/fingerprint mã đã nạp. Cầu nối media-v3 dùng .bridge/runtime-v3 để tránh tệp khóa/trạng thái của bản cũ ghi đè.
+
+Studio cho Telegram chạy tại localhost:4010, cấu hình .bridge/config.json studio phải khớp. Studio chính tại 4000 vẫn giữ nguyên tiến trình. ensureStudio truyền UI_PORT đúng khi khởi động bản Telegram. EXE mới mở giao diện 4010. Script khởi động cũ trong teleSetup mở EXE mới; các script cũ tại ổ C được chuyển hướng sang EXE ổ E.
+
+install-media.mjs thêm thay đổi giới hạn trong scripts/ui-server.mjs và src/components/FreeStyleScene.tsx, lưu bản trước tại .bridge/studio-backups. Chỉ video có marker NewsAutoBear và user-only luân phiên 1–2 ảnh cho mọi cảnh. Các video/UI khác giữ cách gán ảnh cũ. Panel ảnh sáng, chuyển động zoom nhẹ, không dùng lớp phủ nền tối; dành vùng riêng cho phụ đề. Không có ảnh hoặc còn cảnh thiếu ảnh hợp lệ thì chưa giao video, thay vì âm thầm gửi chỉ chữ.
+
+Cloud Worker có kiểm tra X-Runtime-Version=media-v3 ở /render/claim. Cần triển khai Worker này mới chặn được cầu nối cũ nhận công việc; GitHub không tự deploy. Phiên Cloudflare hết đăng nhập trong lần sửa này, nên phải xác nhận triển khai sau đăng nhập lại.
+
+Đã dựng MP4 1045 khung/30 fps (khoảng 35 giây), tái dùng kịch bản/giọng đọc video gần nhất và gắn hai phác họa an toàn ngân hàng. Đã xem khung 3s/12s/28s, không che phụ đề. Đây là kiểm tra dựng bằng spec, chưa phải yêu cầu Telegram mới hoàn tất từ đầu tới cuối. Bản kiểm tra ở .bridge/proof/video-with-images-v2.mp4.
