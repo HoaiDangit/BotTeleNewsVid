@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import {installMedia} from './install-media.mjs';
+import {runtimeFingerprint,RUNTIME_VERSION} from './runtime-version.mjs';
 import {licensedImages} from './licensed-images.mjs';
 import {pidAlive,agentAlive} from './runtime-status.mjs';
 import {editorialRequest,saveReview,POLICY_VERSION} from './editorial-policy.mjs';
@@ -11,7 +13,8 @@ import {setTimeout as sleep} from 'node:timers/promises';
 const ROOT=path.dirname(fileURLToPath(import.meta.url));
 const PRIVATE=path.join(ROOT,'.bridge');
 const CONFIG=path.join(PRIVATE,'config.json');
-const JOURNAL=path.join(PRIVATE,'current.json');
+const RUNTIME=path.join(PRIVATE,'runtime-v3');
+const JOURNAL=path.join(RUNTIME,'current.json');
 const log=s=>console.log(new Date().toISOString()+' '+s);
 const save=data=>{fs.writeFileSync(JOURNAL+'.tmp',JSON.stringify(data,null,2));fs.renameSync(JOURNAL+'.tmp',JOURNAL);};
 export function filename(title,time) {
@@ -33,7 +36,7 @@ export async function studioSnapshot(studio) {
   }finally{clearTimeout(timer);controller.abort();}
 }
 async function cloud(config,route,{body={},job,raw}={}) {
-  const headers={Authorization:'Bearer '+config.token};
+  const headers={Authorization:'Bearer '+config.token,'X-Runtime-Version':RUNTIME_VERSION};
   if(job)headers['X-Job-Id']=job;
   if(raw){headers['Content-Type']='video/mp4';headers['Content-Length']=String(fs.statSync(raw).size);}
   else headers['Content-Type']='application/json';
@@ -43,10 +46,11 @@ async function cloud(config,route,{body={},job,raw}={}) {
 }
 export async function ensureStudio(config) {
   try{await studioSnapshot(config.studio);return;}catch{}
+  installMedia(config.appRoot);
   const entry=path.join(config.appRoot,'scripts','ui-server.mjs');
   if(!fs.existsSync(entry))throw Error('Không thấy ứng dụng dựng video');
   const fd=fs.openSync(path.join(PRIVATE,'studio.log'),'a');
-  const child=spawn(process.execPath,[entry],{cwd:config.appRoot,windowsHide:true,detached:true,stdio:['ignore',fd,fd]});
+  const child=spawn(process.execPath,[entry],{cwd:config.appRoot,windowsHide:true,detached:true,env:{...process.env,UI_PORT:new URL(config.studio).port||'4000'},stdio:['ignore',fd,fd]});
   child.on('error',()=>{});child.unref();fs.closeSync(fd);
   for(let i=0;i<15;i++){await sleep(1000);try{await studioSnapshot(config.studio);return;}catch{}}
   throw Error('Ứng dụng chưa khởi động được; xem studio.log trên máy');
@@ -83,6 +87,7 @@ async function processJob(config,job,resume) {
   if(!resume){state={job,phase:'starting',marker:'[NewsAutoBear '+job.id+']'};save(state);
     state.editorialPolicy=POLICY_VERSION;save(state);
     state.media=await licensedImages(config,job);save(state);
+    if(!state.media.assets.length)throw Error('Không chuẩn bị được ảnh minh họa; kiểm tra manifest thay vì dựng video chỉ chữ.');
     const r=await fetch(config.studio+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(editorialRequest(job,state.marker,state.media)),signal:AbortSignal.timeout(30000)});
     if(!r.ok)throw Error('Ứng dụng chưa nhận yêu cầu (HTTP '+r.status+')');
     state.phase='rendering';save(state);log('Đang dựng '+job.id);
@@ -120,29 +125,20 @@ async function processJob(config,job,resume) {
 }
 async function main() {
   const config=JSON.parse(fs.readFileSync(CONFIG,'utf8'));
-  if(!/^https:\/\/[^/]+\.workers\.dev$/.test(config.cloud)||config.studio!=='http://127.0.0.1:4000')throw Error('Địa chỉ cấu hình không hợp lệ');
+  if(!/^https:\/\/[^/]+\.workers\.dev$/.test(config.cloud)||!/^http:\/\/127\.0\.0\.1:(4000|4010)$/.test(config.studio))throw Error('Địa chỉ cấu hình không hợp lệ');
   if(process.argv.includes('--check')){const status=await cloud(config,'ping');log(JSON.stringify(status));await ensureStudio(config);const p=await studioSnapshot(config.studio);log('Studio reachable; active='+!!p.active);return;}
-  const previousFile=path.join(PRIVATE,'previous-runtime.txt');
-  if(fs.existsSync(previousFile)){
-    const previousLock=path.join(fs.readFileSync(previousFile,'utf8').replace(/^\uFEFF/,'').trim(),'agent.pid');
-    if(fs.existsSync(previousLock)){
-      const previousPid=Number(fs.readFileSync(previousLock,'utf8'));
-      if(Number.isInteger(previousPid)&&previousPid>0){
-        if(agentAlive(path.dirname(previousLock)))throw Error('Cầu nối ổ C vẫn chạy. Không khởi động bản thứ hai.');
-      }
-    }
-  }
+  fs.mkdirSync(RUNTIME,{recursive:true});
   // One local renderer process only, including accidental double-clicks of the launcher.
-  const lock=path.join(PRIVATE,'agent.pid');
-  if(fs.existsSync(lock)){const pid=Number(fs.readFileSync(lock,'utf8'));if(agentAlive(PRIVATE))throw Error('Agent đã chạy');}
+  const lock=path.join(RUNTIME,'agent.pid');
+  if(fs.existsSync(lock)){const pid=Number(fs.readFileSync(lock,'utf8'));if(agentAlive(RUNTIME))throw Error('Agent đã chạy');}
   if(fs.existsSync(lock))fs.unlinkSync(lock);
   fs.writeFileSync(lock,String(process.pid),{flag:'wx'});
   process.on('exit',()=>{try{if(Number(fs.readFileSync(lock,'utf8'))===process.pid)fs.unlinkSync(lock);}catch{}});
-  const heartbeatFile=path.join(PRIVATE,'agent-heartbeat.json');
-  const pulse=()=>{try{fs.writeFileSync(heartbeatFile,JSON.stringify({pid:process.pid,seen:Date.now()}));}catch{}};
+  const heartbeatFile=path.join(RUNTIME,'agent-heartbeat.json');
+  const pulse=()=>{try{fs.writeFileSync(heartbeatFile,JSON.stringify({pid:process.pid,seen:Date.now(),version:RUNTIME_VERSION,fingerprint:runtimeFingerprint()}));}catch{}};
   pulse();const pulseTimer=setInterval(pulse,15000);pulseTimer.unref();
   process.on('exit',()=>{try{if(JSON.parse(fs.readFileSync(heartbeatFile,'utf8')).pid===process.pid)fs.unlinkSync(heartbeatFile);}catch{}});
-  log('NewsAutoBear video agent started');
+  log('NewsAutoBear '+RUNTIME_VERSION+' started');
   while(true){
     try{
       await ensureStudio(config);
