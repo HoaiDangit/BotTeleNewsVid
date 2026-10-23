@@ -9,11 +9,12 @@ test('queue isolates owner, claims once, sends to stored chat, names by source a
   const actual=globalThis.fetch, sent=[];let multipart='';
   const env={DB:database(),TELEGRAM_BOT_TOKEN:'fake',VIDEO_AGENT_SHA256:await hash('agent')};const pending=[],ctx={waitUntil:p=>pending.push(p)};
   globalThis.fetch=async(url,o)=>{if(url.endsWith('/sendVideo')){multipart=await new Response(o.body).text();return Response.json({ok:true,result:{message_id:77}});}if(url.includes('api.telegram.org')){sent.push(JSON.parse(o.body));return Response.json({ok:true,result:true});}if(url==='https://vietnamnet.vn/new-article.html')return new Response('<html><h1>Bài mới ngoài kho tin</h1><article><p>'+('Nội dung bài báo đã được xác minh từ trang nguồn. '.repeat(12))+'</p></article></html>',{headers:{'content-type':'text/html'}});return new Response('<rss></rss>');};
-  const api=(route,opts={})=>worker.fetch(new Request('https://test/render/'+route,{method:opts.method||'POST',headers:{Authorization:'Bearer agent',...opts.headers},body:opts.method==='GET'?undefined:opts.body||'{}'}),env,ctx);
+  const api=(route,opts={})=>worker.fetch(new Request('https://test/render/'+route,{method:opts.method||'POST',headers:{Authorization:'Bearer agent','X-Runtime-Version':'media-v3',...opts.headers},body:opts.method==='GET'?undefined:opts.body||'{}'}),env,ctx);
   try{
     assert.equal((await worker.fetch(new Request('https://test/render/ping'),env,ctx)).status,403);
     assert.equal((await api('ping',{method:'GET'})).status,200);
     await env.DB.prepare("INSERT INTO state VALUES('owner','123')").run();
+    assert.equal((await api('claim',{headers:{'X-Runtime-Version':'old'}})).status,426);
     await env.DB.prepare('INSERT INTO articles(url,title,summary) VALUES(?,?,?)').bind('https://example.com/news','Công nghệ AI mới','RSS summary').run();
     const secret=await hash('fake:webhook');
     const message=async(id,chat,text)=>{await worker.fetch(new Request('https://test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':secret},body:JSON.stringify({update_id:id,message:{chat:{id:chat,type:'private'},text}})}),env,ctx);await Promise.all(pending.splice(0));};
