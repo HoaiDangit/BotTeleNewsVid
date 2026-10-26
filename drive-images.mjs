@@ -26,6 +26,20 @@ export function folderScore(folder,job){
  const text=' '+norm([job.title,job.excerpt,job.category].join(' '))+' ';
  return [...new Set((folder.keywords||[]).map(norm).filter(Boolean))].reduce((n,k)=>n+(text.includes(' '+k+' ')?k.split(' ').length:0),0);
 }
+export function syncedFiles(root,{recursive=false}={}){
+ const files=[],queue=[{dir:root,depth:0}];let visited=0;
+ while(queue.length&&visited++<80&&files.length<500){
+  const {dir,depth}=queue.shift();
+  for(const entry of fs.readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){
+   if(entry.isSymbolicLink())continue;
+   const localPath=path.join(dir,entry.name);
+   if(entry.isDirectory()&&recursive&&depth<2&&queue.length<80)queue.push({dir:localPath,depth:depth+1});
+   if(entry.isFile()&&/\.(png|jpe?g|webp)$/i.test(entry.name))files.push({name:entry.name,description:path.relative(root,dir),localPath});
+   if(files.length>=500)break;
+  }
+ }
+ return files;
+}
 async function apiToken(c,appRoot,fetcher){
  // Credentials are provisioned by the owner locally; never derive them from browser sessions.
  const p=path.join(appRoot,'teleSetup','.bridge','drive-oauth.json');
@@ -44,7 +58,7 @@ export async function driveImages(config,job,{fetcher=fetch}={}){
   if(c.mode==='synced'){
    if(!path.isAbsolute(folder.localPath||''))throw Error('Drive sync folder must be absolute');
    const root=fs.realpathSync(folder.localPath);
-   files=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isFile()&&!x.isSymbolicLink()&&/\.(png|jpe?g|webp)$/i.test(x.name)).slice(0,500).map(x=>({name:x.name,localPath:path.join(root,x.name)}));
+   files=syncedFiles(root,folder);
   }else{
    if(!id(folder.folderId))throw Error('Invalid Drive folder ID');
    let pageToken='';
@@ -56,7 +70,8 @@ export async function driveImages(config,job,{fetcher=fetch}={}){
    }
   }
   const text=norm([job.title,job.excerpt].join(' ')).split(' ').filter(w=>w.length>3);
-  const rank=f=>text.filter(w=>(' '+norm(f.name+' '+(f.description||''))+' ').includes(' '+w+' ')).length;
+  const jobText=' '+norm([job.title,job.excerpt].join(' '))+' ';
+  const rank=f=>text.filter(w=>(' '+norm(f.name+' '+(f.description||''))+' ').includes(' '+w+' ')).length+(f.description&&jobText.includes(' '+norm(f.description)+' ')?20:0);
   files.sort((a,b)=>rank(b)-rank(a)||a.name.localeCompare(b.name));
   for(const file of files.slice(0,8)){
    if(assets.length===2)return assets;

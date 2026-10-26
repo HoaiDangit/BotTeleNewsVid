@@ -6,7 +6,7 @@ Sao chép drive-images.example.json thành .bridge/drive-images.json. Tệp riê
 
 ## Drive đã đồng bộ trên Windows
 
-Đặt mode=synced và localPath là đường dẫn tuyệt đối của từng thư mục ảnh Google Drive for desktop. Chọn giữ ảnh sẵn trên máy để không phụ thuộc thời gian tải tệp trực tuyến. Bot chỉ đọc ảnh trực tiếp trong từng thư mục được cấu hình, không đệ quy cả Drive, không sửa/xóa ảnh. Hỗ trợ JPEG, PNG, WebP tối đa 6 MB/ảnh. Không cài thêm thư viện hay dùng API tạo ảnh trả phí.
+Đặt mode=synced và localPath là đường dẫn tuyệt đối của từng thư mục ảnh Google Drive for desktop. Chọn giữ ảnh sẵn trên máy để không phụ thuộc thời gian tải tệp trực tuyến. Mặc định bot chỉ đọc ảnh trực tiếp; đặt recursive=true cho thư viện phân theo thư mục con. Khi bật, chỉ quét trong thư mục được chọn với giới hạn 2 tầng con, 80 thư mục và 500 ảnh; không đi theo symlink. Tên thư mục động tác được dùng để ưu tiên ảnh khớp bài viết. Không sửa/xóa ảnh. Hỗ trợ JPEG, PNG, WebP tối đa 6 MB/ảnh; AVIF/GIF được bỏ qua. Không cài thêm thư viện hay dùng API tạo ảnh trả phí.
 
 ## Drive API
 
