@@ -10,6 +10,8 @@ Sao chép drive-images.example.json thành .bridge/drive-images.json. Tệp riê
 
 ## Drive API
 
+Thư viện đã sắp xếp theo tên bài tập có thể dùng một mục folders với localPath trỏ tới thư mục gốc và exerciseLibrary=true. Bot tự đọc tối đa 300 thư mục bài tập trực tiếp, ưu tiên tên/biệt danh động tác trước khi mở ảnh. Không cần khai báo từng bài hoặc đổi cấu hình khi bổ sung thư mục mới. Các thư mục bắt đầu bằng dấu chấm hoặc gạch dưới (như _Tai_lieu_nguon) được loại khỏi kho ảnh. Mỗi thư mục bài tập chứa ảnh trực tiếp; tệp ZIP và tài liệu không dùng để dựng video.
+
 Đặt mode=api và folderId của từng thư mục. Bật Google Drive API trong dự án của chủ sở hữu và cung cấp OAuth đã được chủ sở hữu chấp thuận với phạm vi drive.readonly. Lưu client_id, client_secret, refresh_token vào .bridge/drive-oauth.json trên máy. Chỉ dùng refresh token cho đúng OAuth client; không lấy cookie hay mã phiên trình duyệt. Phạm vi readonly áp dụng quyền đọc của tài khoản đã cấp; cấu hình phần mềm chỉ truy vấn các thư mục khai báo. Không tự cấp quyền, không làm thư mục công khai. Module dùng token endpoint cố định của Google, kiểm tra canDownload trước khi tải qua files.get?alt=media. Không ghi token vào manifest, log hay Cloudflare. Đọc tối đa 500 mục ảnh trực tiếp mỗi thư mục; thư mục con cần khai báo riêng.
 
 https://developers.google.com/workspace/drive/api/guides/search-files

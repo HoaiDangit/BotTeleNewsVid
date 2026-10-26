@@ -26,6 +26,14 @@ export function folderScore(folder,job){
  const text=' '+norm([job.title,job.excerpt,job.category].join(' '))+' ';
  return [...new Set((folder.keywords||[]).map(norm).filter(Boolean))].reduce((n,k)=>n+(text.includes(' '+k+' ')?k.split(' ').length:0),0);
 }
+export function libraryFolders(config){
+ if(config.mode!=='synced')return config.folders;
+ return config.folders.flatMap(folder=>{
+  if(!folder.exerciseLibrary)return [folder];
+  if(!path.isAbsolute(folder.localPath||''))throw Error('Exercise library root must be absolute');
+  return fs.readdirSync(folder.localPath,{withFileTypes:true}).filter(e=>e.isDirectory()&&!e.isSymbolicLink()&&!/^[._]/.test(e.name)).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,300).map(e=>({...folder,exerciseLibrary:false,exerciseName:e.name,localPath:path.join(folder.localPath,e.name),recursive:false,keywords:[...(folder.keywords||[]),e.name]}));
+ });
+}
 export function syncedFiles(root,{recursive=false}={}){
  const files=[],queue=[{dir:root,depth:0}];let visited=0;
  while(queue.length&&visited++<80&&files.length<500){
@@ -50,7 +58,13 @@ async function apiToken(c,appRoot,fetcher){
 }
 export async function driveImages(config,job,{fetcher=fetch}={}){
  const c=readDriveConfig(config.appRoot);if(!c)return [];
- const folders=c.folders.map(folder=>({folder,score:folderScore(folder,job)||(job.kind==='workout'&&folder.authorized===true&&folder.author&&folder.permissionEvidence?1:0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,job.kind==='workout'?8:4);
+ const workout=job.kind==='workout'?JSON.parse(job.excerpt):null;
+ const exerciseTerms=workout?[workout.title,...(workout.aliases||[])].map(norm).filter(t=>t.length>3):[];
+ const folders=libraryFolders(c).map(folder=>{
+  if(folder.authorized!==true||!folder.author||!folder.permissionEvidence)return {folder,score:0};
+  const name=' '+norm(folder.exerciseName)+' ',exact=exerciseTerms.some(t=>name.includes(' '+t+' '));
+  return {folder,score:folderScore(folder,job)+(exact?100:0)||(job.kind==='workout'?1:0)};
+ }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,job.kind==='workout'?8:4);
  if(!folders.length)return [];
  const token=c.mode==='api'?await apiToken(c,config.appRoot,fetcher):null,assets=[];
  for(const {folder} of folders){
@@ -89,7 +103,7 @@ export async function driveImages(config,job,{fetcher=fetch}={}){
      bytes=await readLimited(await fetcher('https://www.googleapis.com/drive/v3/files/'+file.id+'?alt=media&supportsAllDrives=true',{redirect:'error',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)}));
     }
     const mime=imageMime(bytes);if(!mime)continue;
-    assets.push({bytes,mime,title:file.name,sourcePage:file.id?'https://drive.google.com/file/d/'+file.id+'/view':folder.sourcePage||'Google Drive synced library',license:'Permission recorded by owner',author:folder.author,permissionEvidence:folder.permissionEvidence,provider:'google-drive',purpose:'Ảnh thư viện minh họa chủ đề, không phải bằng chứng sự kiện'});
+    assets.push({bytes,mime,title:file.name,sourcePage:file.id?'https://drive.google.com/file/d/'+file.id+'/view':folder.sourcePage||'Google Drive synced library',license:'Permission recorded by owner',author:folder.author,permissionEvidence:folder.permissionEvidence,provider:'google-drive',exercise:folder.exerciseName||null,purpose:'Ảnh thư viện minh họa chủ đề, không phải bằng chứng sự kiện'});
    }catch{/* Try the next image; the caller retains other image sources. */}
   }
  }
