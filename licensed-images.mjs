@@ -1,4 +1,5 @@
 import {drawSketch} from './sketch-images.mjs';
+import {driveImages} from './drive-images.mjs';
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';
 const clean=s=>String(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
 const normalized=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase();
@@ -28,7 +29,18 @@ export async function licensedImages(config,job){
  const manifest={job:job.id,article:job.url,created:new Date().toISOString(),assets:[],notice:'CC0/Public domain, ảnh có phép hoặc phác họa tạo trên máy; cần duyệt độ liên quan và quyền hình ảnh cá nhân/nhãn hiệu. Không xác nhận quyền pháp lý tuyệt đối.'};
  const query=imageQuery(job);let candidates=[];
  try{
-  if(query){
+  for(const {bytes,mime,...asset} of await driveImages(config,job)){
+   const sha256=crypto.createHash('sha256').update(bytes).digest('hex');
+   if(manifest.assets.some(a=>a.sha256===sha256))continue;
+   const upload=await fetch(config.studio+'/api/user-images?name=drive-'+job.id,{method:'POST',headers:{'Content-Type':mime},body:bytes,signal:AbortSignal.timeout(12000)});
+   if(!upload.ok)continue;const result=await upload.json();
+   if(!/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(result.id||''))continue;
+   fs.writeFileSync(path.join(archive,result.id),bytes);
+   manifest.assets.push({...asset,id:result.id,sha256,retrieved:new Date().toISOString()});
+  }
+ }catch{manifest.driveError='Không đọc được thư viện Drive; kiểm tra đường dẫn, quyền đọc và cấu hình riêng trên máy.';}
+ try{
+  if(query&&manifest.assets.length<2){
    const u=new URL('https://commons.wikimedia.org/w/api.php');u.search=new URLSearchParams({action:'query',format:'json',generator:'search',gsrsearch:query+' filetype:bitmap',gsrnamespace:'6',gsrlimit:'12',prop:'imageinfo',iiprop:'url|mime|extmetadata',iiurlwidth:'1280'});
    const r=await fetch(u,{headers:{'User-Agent':'NewsAutoBear/1.0 (personal licensed image search)'},signal:AbortSignal.timeout(12000)});const data=JSON.parse((await limited(r,1500000)).toString('utf8'));
    candidates=Object.values(data.query?.pages||{}).map(p=>commonsAsset(p,query)).filter(Boolean);

@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "mode": "synced",
+  "folders": [
+    {"localPath":"G:\\My Drive\\VideoImages\\Music","folderId":"REPLACE_ME","keywords":["âm nhạc","ca sĩ","music","concert"],"authorized":false,"author":"","permissionEvidence":""},
+    {"localPath":"G:\\My Drive\\VideoImages\\Travel","folderId":"REPLACE_ME","keywords":["du lịch","tourism","travel"],"authorized":false,"author":"","permissionEvidence":""},
+    {"localPath":"G:\\My Drive\\VideoImages\\Environment","folderId":"REPLACE_ME","keywords":["môi trường","thiên nhiên","khí hậu","forest"],"authorized":false,"author":"","permissionEvidence":""},
+    {"localPath":"G:\\My Drive\\VideoImages\\Economy","folderId":"REPLACE_ME","keywords":["kinh tế","kinh doanh","doanh nghiệp","economy","business"],"authorized":false,"author":"","permissionEvidence":""},
+    {"localPath":"G:\\My Drive\\VideoImages\\Culture","folderId":"REPLACE_ME","keywords":["văn hóa","di sản","lễ hội","culture"],"authorized":false,"author":"","permissionEvidence":""},
+    {"localPath":"G:\\My Drive\\VideoImages\\Society","folderId":"REPLACE_ME","keywords":["xã hội","giáo dục","y tế","society"],"authorized":false,"author":"","permissionEvidence":""},
+    {"localPath":"G:\\My Drive\\VideoImages\\Technology","folderId":"REPLACE_ME","keywords":["công nghệ","AI","robot","chip"],"authorized":false,"author":"","permissionEvidence":""}
+  ]
+}
