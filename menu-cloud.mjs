@@ -1,23 +1,17 @@
 const BOT_COMMANDS=[
-  {command:'tin',description:'Xem 10 tin mới ưu tiên'},
-  {command:'tim',description:'Tìm tin theo từ khóa và khoảng ngày'},
-  {command:'hoi',description:'Hỏi AI về tin tức có dẫn nguồn'},
-  {command:'sang',description:'Xem lại bản tin 07:00'},
-  {command:'toi',description:'Xem lại bản tin 20:00'},
-  {command:'video',description:'Tạo video từ link bài báo'},
+  {command:'myid',description:'Xác nhận Telegram ID và quyền truy cập'},
+  {command:'tin',description:'5 tin nổi bật mới nhất; có thể thêm từ khóa'},
+  {command:'baitap',description:'5 bài tập tham khảo hôm nay'},
+  {command:'video_tin',description:'Tạo video tin tức từ link bài báo'},
+  {command:'video_tap',description:'Tạo video bài tập: chọn số hoặc nhập mô tả'},
   {command:'check_status',description:'Kiểm tra máy dựng và tiến độ video'},
-  {command:'trangthai',description:'Kiểm tra kho tin và dịch vụ AI'},
-  {command:'nguon',description:'Danh sách nguồn báo đang theo dõi'},
-  {command:'help',description:'Hướng dẫn và ví dụ dùng lệnh'},
-  {command:'start',description:'Bắt đầu hoặc xem hướng dẫn'},
-  {command:'myid',description:'Lấy Telegram ID để xin quyền truy cập'}
 ];
 async function syncMenu(e) {
   const owner=await get(e,'owner');
   const scopes=[{type:'default'},{type:'all_private_chats'},...(owner?[{type:'chat',chat_id:owner}]:[])];
   for(const scope of scopes)for(const language_code of ['', 'vi','en'])await telegram(e,'setMyCommands',{commands:BOT_COMMANDS,scope,language_code});
   await telegram(e,'setChatMenuButton',{menu_button:{type:'commands'}});
-  if(owner)for(const language_code of ['', 'vi','en'])await telegram(e,'setMyCommands',{commands:[...BOT_COMMANDS,{command:'allow',description:'Thêm tài khoản được phép'},{command:'deny',description:'Thu hồi quyền tài khoản'},{command:'users',description:'Danh sách tài khoản được phép'}],scope:{type:'chat',chat_id:owner},language_code});
+  // Admin access commands remain available by typing, outside the compact menu.
   if(owner)await telegram(e,'setChatMenuButton',{chat_id:owner,menu_button:{type:'commands'}});
   return {ok:true,commands:await telegram(e,'getMyCommands',{scope:{type:'default'},language_code:''}),ownerCommands:owner?await telegram(e,'getMyCommands',{scope:{type:'chat',chat_id:owner},language_code:'vi'}):[],menuButton:await telegram(e,'getChatMenuButton',owner?{chat_id:owner}:{})};
 }

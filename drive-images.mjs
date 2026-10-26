@@ -50,7 +50,7 @@ async function apiToken(c,appRoot,fetcher){
 }
 export async function driveImages(config,job,{fetcher=fetch}={}){
  const c=readDriveConfig(config.appRoot);if(!c)return [];
- const folders=c.folders.map(folder=>({folder,score:folderScore(folder,job)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,4);
+ const folders=c.folders.map(folder=>({folder,score:folderScore(folder,job)||(job.kind==='workout'&&folder.authorized===true&&folder.author&&folder.permissionEvidence?1:0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,job.kind==='workout'?8:4);
  if(!folders.length)return [];
  const token=c.mode==='api'?await apiToken(c,config.appRoot,fetcher):null,assets=[];
  for(const {folder} of folders){
@@ -68,6 +68,10 @@ export async function driveImages(config,job,{fetcher=fetch}={}){
     const data=JSON.parse((await readLimited(r,1500000)).toString());files.push(...(data.files||[]).filter(f=>id(f.id)&&f.capabilities?.canDownload===true&&Number(f.size)>0&&Number(f.size)<=6000000));
     pageToken=data.nextPageToken;if(!pageToken)break;
    }
+  }
+  if(job.kind==='workout'){
+   const workout=JSON.parse(job.excerpt),terms=[workout.title,...(workout.aliases||[])].map(norm).filter(t=>t.length>3);
+   files=files.filter(f=>terms.some(t=>(' '+norm(f.name+' '+(f.description||''))+' ').includes(' '+t+' ')));
   }
   const text=norm([job.title,job.excerpt].join(' ')).split(' ').filter(w=>w.length>3);
   const jobText=' '+norm([job.title,job.excerpt].join(' '))+' ';

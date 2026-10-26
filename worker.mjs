@@ -15,7 +15,7 @@ export const FEEDS = [
   ['BBC','world','https://feeds.bbci.co.uk/news/world/rss.xml']
 ];
 const LABEL = {tech:'Công nghệ/AI',business:'Kinh doanh thế giới',economy:'Kinh tế',music:'Âm nhạc',society:'Xã hội',travel:'Du lịch',environment:'Môi trường',culture:'Văn hóa',world:'Quốc tế'};
-const HELP = 'NewsAutoBear — 10 tin lúc 07:00 và 20:00 (Việt Nam).\n/tin — 10 tin mới ưu tiên\n/tim AI | 24h\n/tim kinh tế | 01/10/2026 | 14/10/2026\n/hoi AI ảnh hưởng Việt Nam thế nào? | 7d\n/sang /toi — xem lại bản tin\n/video <link bài báo> — tạo video trên máy\n/check_status — máy dựng và tiến độ video\n/myid — Telegram ID của bạn\n/nguon — nguồn theo dõi\n/trangthai — tình trạng\nTìm kiếm trong kho tin đã thu thập, giữ 30 ngày. Tóm tắt RSS chưa thay thế việc đọc bài gốc.';
+const HELP = "NewsAutoBear — 2 luồng riêng: 07:00 gửi 5 tin nổi bật; 20:00 gửi 5 bài tập tham khảo (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 5 tin mới trong 24 giờ\n/baitap — 5 bài tập hôm nay\n/video_tin <link bài báo> — video tin tức\n/video_tap 1–5 — video từ bài tập hôm nay\n/video_tap Tên bài | Mô tả động tác | Mức tập (nếu có) | Link nguồn (nếu có) — video bài bạn cung cấp\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. Bài tập hỗ trợ vận động, không bảo đảm giảm cân. /start hoặc /help để xem lại hướng dẫn.";
 export const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const xmlText = s => String(s||'').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/<[^>]*>/g,' ').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{const v=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return v>0&&v<=0x10ffff?String.fromCodePoint(v):'';}).replace(/&(amp|lt|gt|quot|apos|nbsp);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '})[n]).replace(/\s+/g,' ').trim();
 const tag = (s,n) => (s.match(new RegExp('<'+n+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+n+'>','i'))||[])[1]||'';
@@ -111,10 +111,11 @@ function card(a,i){return (i+1)+'. ['+(LABEL[a.category]||a.category)+'] '+a.tit
 function pages(rows,heading){const out=[];let text=heading+'\nTóm tắt từ RSS; cần đọc bài gốc trước khi xuất bản.\n';rows.forEach((a,i)=>{const c='\n'+card(a,i)+'\n';if(text.length+c.length>3800){out.push(text);text=heading+' (tiếp)\n';}text+=c;});out.push(text);return out;}
 async function query(e,term,spec,end){const [a,b]=timeRange(spec||'24h',Date.now(),end),terms=norm(term).split(' ').filter(Boolean).slice(0,8);return (await sql(e,'SELECT * FROM articles WHERE published BETWEEN ? AND ?'+terms.map(()=>" AND instr(' '||search||' ',?)>0").join('')+' ORDER BY published DESC LIMIT 400',a,b,...terms.map(t=>' '+t+' ')).all()).results;}
 async function digest(e,slot){
+  if(slot==='pm')return workoutDigest(e,true);
   const owner=await get(e,'owner');if(!owner||!e.TELEGRAM_BOT_TOKEN)return;
   const id=localDay(Date.now())+':'+slot;let edition=await sql(e,'SELECT * FROM editions WHERE id=?',id).first();if(edition)return;
-  const now=Date.now(),rows=selectNews((await sql(e,'SELECT * FROM articles WHERE published>=? AND sent=0 ORDER BY published DESC LIMIT 400',now-24*3600000).all()).results,10,now);
-  const title='BẢN TIN '+(slot==='am'?'07:00':'20:00')+' · '+localDay(now)+(rows.length<10?'\nChỉ có '+rows.length+' tin mới phù hợp; không thêm tin cũ để đủ số.':'');
+  const now=Date.now(),rows=selectNews((await sql(e,'SELECT * FROM articles WHERE published>=? AND sent=0 ORDER BY published DESC LIMIT 400',now-24*3600000).all()).results,5,now);
+  const title='BẢN TIN '+(slot==='am'?'07:00':'20:00')+' · '+localDay(now)+(rows.length<5?'\nChỉ có '+rows.length+' tin mới phù hợp; không thêm tin cũ để đủ số.':'');
   let parts=rows.length?pages(rows,title):[title+'\nChưa có tin mới trong kho.'];
   const claim=await sql(e,'INSERT OR IGNORE INTO editions(id,created,status,parts,urls) VALUES(?,?,?,?,?)',id,now,'sending',JSON.stringify(parts),JSON.stringify(rows.map(r=>r.url))).run();if(!claim.meta.changes)return;
   try {
@@ -135,22 +136,23 @@ async function handle(e,u){
     if(cmd==='/myid')await send(e,id,'Telegram ID của bạn: '+id+'\nVai trò: '+(id===owner?'quản trị viên':await get(e,'access:'+id)?'thành viên được phép':'chưa được cấp quyền')+'\nUsername không thay thế ID dạng số khi cấp quyền.');
     else if(['/allow','/deny','/users'].includes(cmd))await accessCommand(e,id,owner,text);
     else if(owner!==id&&!await get(e,'access:'+id))await send(e,id,'Bot dùng danh sách được phép. Gửi /myid rồi chuyển ID cho quản trị viên để xin quyền truy cập.');
-    else if(cmd==='/video'||cmd==='/video_status'||cmd==='/check_status')await videoCommand(e,id,text,u.update_id);
+    else if(cmd==='/video_tap')await workoutVideoCommand(e,id,text,u.update_id);
+    else if(['/video_tin','/video','/video_status','/check_status'].includes(cmd))await videoCommand(e,id,text,u.update_id);
     else if(cmd==='/start'||cmd==='/help')await send(e,id,HELP);
-    else if(cmd==='/nguon')await send(e,id,FEEDS.map(f=>f[0]+' / '+LABEL[f[1]]+'\n'+f[2]).join('\n\n'));
-    else if(cmd==='/trangthai'){const total=await sql(e,'SELECT COUNT(*) AS n FROM articles').first(),last=await get(e,'last_collect'),failed=await sql(e,"SELECT COUNT(*) AS n FROM editions WHERE status!='sent'").first();await send(e,id,'Kho tin: '+total.n+' bài.\nLần quét: '+(last?stamp(+last):'chưa có')+'\nAI: '+(e.AI_ENABLED==='true'?(await get(e,'ai_status')||'chưa gọi'):'chưa bật; cần xác nhận API Free Tier')+'\nBản tin cần kiểm tra gửi: '+failed.n+'\nLịch 07:00 / 20:00 Việt Nam. Kiểm tra từng nhóm nguồn mỗi 3 phút, vòng đầy đủ 12 phút.');}
-    else if(cmd==='/sang'||cmd==='/toi'){const row=await sql(e,'SELECT parts,status FROM editions WHERE id LIKE ? ORDER BY created DESC LIMIT 1','%:'+(cmd==='/sang'?'am':'pm')).first();if(row){for(const p of JSON.parse(row.parts))await send(e,id,p);}else await send(e,id,'Chưa có bản tin đã lập cho buổi này. Dùng /tin để xem tin trong kho.');}
-    else if(cmd==='/tin'||cmd==='/tim'){const args=(cmd==='/tim'?text.slice(text.indexOf(' ')+1):'').split('|').map(x=>x.trim());if(cmd==='/tim'&&!text.includes(' '))throw Error('Ví dụ: /tim AI | 24h');const rows=selectNews(await query(e,args[0]||'',args[1],args[2]));if(!rows.length)await send(e,id,'Không tìm thấy trong kho đã thu thập. Thử mở rộng từ khóa hoặc khoảng ngày (tối đa 30 ngày).');else for(const p of pages(rows,'TIN TRONG KHO · '+stamp(Date.now())))await send(e,id,p);}
-    else if(cmd==='/hoi'&&!text.slice(4).trim())await send(e,id,'Ví dụ: /hoi AI ảnh hưởng Việt Nam thế nào? | 7d');
-    else if(text.startsWith('/')&&!['/hoi'].includes(cmd))await send(e,id,'Lệnh chưa hỗ trợ. Gửi /help để xem danh sách lệnh.');
-    else {const args=(cmd==='/hoi'?text.slice(4):text).split('|').map(x=>x.trim()),range=args[1]||'24h';const all=await query(e,'',range,args[2]);const words=norm(args[0]).split(' ').filter(w=>w.length>2||w==='ai');const relevant=all.map(a=>({...a,match:words.filter(w=>(' '+a.search+' ').includes(' '+w+' ')).length})).filter(a=>a.match>0).sort((a,b)=>b.match-a.match||rank(b)-rank(a)).slice(0,6);const rows=relevant.length?relevant:selectNews(all,6);if(!rows.length)await send(e,id,'Kho tin chưa có nguồn trong khoảng này để trả lời.');else {const answer=await gemini(e,JSON.stringify({question:args[0],period:range,sources:rows.map((a,i)=>({id:i+1,title:a.title,published:iso(a.published),source:a.source,rss_excerpt:a.summary}))}));await send(e,id,(answer||'AI chưa bật, hết lượt hoặc tạm không khả dụng. Các nguồn dưới đây là kết quả tham khảo trong kho, chưa phải câu trả lời đã được AI phân tích.')+'\n\nNguồn RSS:\n'+rows.map((a,i)=>'['+(i+1)+'] '+a.title.slice(0,90)+'\n'+a.url).join('\n'));}}
+    else if(cmd==='/baitap')await workoutDigest(e,false,id);
+    else if(cmd==='/tin'){
+      const term=text.slice(4).trim(),rows=selectNews(await query(e,term,'24h'),5);
+      if(!rows.length)await send(e,id,'Chưa có tin phù hợp trong 24 giờ gần nhất. Hệ thống tiếp tục cập nhật nguồn định kỳ.');
+      else for(const p of pages(rows,'5 TIN NỔI BẬT · '+stamp(Date.now())))await send(e,id,p);
+    }
+    else await send(e,id,'Menu đã rút gọn. Dùng /tin, /baitap, /video_tin, /video_tap, /check_status hoặc /myid. /help xem cú pháp gửi bài tập.');
     await sql(e,'UPDATE updates SET status=? WHERE id=?','done',u.update_id).run();
-  }catch(err){await sql(e,'UPDATE updates SET status=? WHERE id=?','failed',u.update_id).run();await send(e,id,/Khoảng|Ngày|Dùng|Ví dụ/.test(err.message)?err.message:'Yêu cầu chưa xử lý được. Hãy thử lại sau; dùng /trangthai để kiểm tra.').catch(()=>{});}
+  }catch(err){await sql(e,'UPDATE updates SET status=? WHERE id=?','failed',u.update_id).run();await send(e,id,/Khoảng|Ngày|Dùng|Ví dụ/.test(err.message)?err.message:'Yêu cầu chưa xử lý được. Hãy thử lại sau; dùng /check_status để kiểm tra.').catch(()=>{});}
 }
 export default {
   async fetch(request,e,ctx){
     const url=new URL(request.url);
-    if(request.method==='GET'&&url.pathname==='/')return html('<h1>NewsAutoBear</h1><p>Dịch vụ bot tin tức Telegram.</p><p>Lịch dự kiến: 10 tin lúc 07:00 và 10 tin lúc 20:00, giờ Việt Nam.</p><p><a href="/activate">Kích hoạt Telegram</a></p>');
+    if(request.method==='GET'&&url.pathname==='/')return html('<h1>NewsAutoBear</h1><p>Dịch vụ bot tin tức Telegram.</p><p>Lịch: 5 tin lúc 07:00 và 5 bài tập lúc 20:00, giờ Việt Nam.</p><p><a href="/activate">Kích hoạt Telegram</a></p>');
     if(request.method==='GET'&&url.pathname==='/health')return json({service:'newsautobear-bot',version:'1.1.0',database:!!e.DB,telegramConfigured:!!e.TELEGRAM_BOT_TOKEN,geminiConfigured:!!e.GEMINI_API_KEY,aiEnabled:e.AI_ENABLED==='true'});
     if(request.method==='GET'&&url.pathname==='/activate')return html('<h1>Kích hoạt bot</h1><p>Nhập lại Telegram token đã lưu trong Cloudflare Secrets để chứng minh bạn quản lý bot. Token gửi bằng HTTPS tới chính Worker này, dùng để đăng ký webhook với Telegram; không lưu trong kho tin.</p><form method="post" action="/activate"><label>Telegram token<input type="password" name="token" autocomplete="off" required></label><button>Kích hoạt và lấy liên kết ghép nối</button></form>');
     try{
@@ -162,7 +164,7 @@ export default {
         await init(e);const me=await telegram(e,'getMe',{}),secret=await sha(e.TELEGRAM_BOT_TOKEN+':webhook');
         await telegram(e,'setWebhook',{url:url.origin+'/telegram',secret_token:secret,allowed_updates:['message'],max_connections:1});
         await syncMenu(e);
-        const owner=await get(e,'owner');if(owner)return html('<h1>Webhook đã kết nối</h1><p>Bot đã có chủ sở hữu. Mở Telegram và gửi /trangthai.</p>');
+        const owner=await get(e,'owner');if(owner)return html('<h1>Webhook đã kết nối</h1><p>Bot đã có chủ sở hữu. Mở Telegram và gửi /help.</p>');
         const code=crypto.randomUUID().replaceAll('-','');await put(e,'pair',JSON.stringify({code,expires:Date.now()+15*60000}));return html('<h1>Webhook đã kết nối</h1><p>Mở liên kết dưới đây bằng tài khoản Telegram của bạn và nhấn Start trong 15 phút. Giữ riêng liên kết này.</p><a href="https://t.me/'+me.username+'?start='+code+'">Ghép nối tài khoản Telegram</a>');
       }
       if(request.method==='POST'&&url.pathname==='/telegram'){

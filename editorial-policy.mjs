@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {workoutRequest,reviewWorkout} from './workout-editorial.mjs';
 export const POLICY_VERSION='editorial-licensed-images-2';
 export function editorialRequest(job,marker,media={assets:[]}){
+ if(job.kind==='workout')return workoutRequest(job,marker,media);
  const host=new URL(job.url).hostname;
  const context=`${marker}
 YÊU CẦU BIÊN TẬP BẮT BUỘC:
@@ -21,6 +23,7 @@ ${JSON.stringify({title:job.title,url:job.url,excerpt:job.excerpt})}`;
 }
 const words=s=>String(s||'').toLocaleLowerCase('vi').replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/);
 export function reviewScript(job,plan,approvedImages=[]){
+ if(job.kind==='workout')return reviewWorkout(job,plan,approvedImages);
  const text=(plan.scenes||[]).map(s=>s.text||'').join('\n'); const errors=[];
  if(text.length<100)errors.push('Kịch bản thiếu hoặc quá ngắn.');
  const host=new URL(job.url).hostname;

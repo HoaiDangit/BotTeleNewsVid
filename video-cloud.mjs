@@ -4,18 +4,20 @@ async function initVideo(e) {
   await e.DB.prepare(`CREATE TABLE IF NOT EXISTS video_jobs(
     id TEXT PRIMARY KEY, chat TEXT NOT NULL, title TEXT NOT NULL, url TEXT NOT NULL,
     excerpt TEXT, created INTEGER NOT NULL, started INTEGER, finished INTEGER,
-    status TEXT NOT NULL, progress TEXT, filename TEXT, message_id INTEGER)`).run();
+    status TEXT NOT NULL, progress TEXT, filename TEXT, message_id INTEGER,kind TEXT NOT NULL DEFAULT 'news')`).run();
+  const columns=(await e.DB.prepare('PRAGMA table_info(video_jobs)').all()).results;
+  if(!columns.some(c=>c.name==='kind'))try{await e.DB.prepare("ALTER TABLE video_jobs ADD COLUMN kind TEXT NOT NULL DEFAULT 'news'").run();}catch(err){const check=(await e.DB.prepare('PRAGMA table_info(video_jobs)').all()).results;if(!check.some(c=>c.name==='kind'))throw err;}
 }
 async function videoCommand(e,id,text,updateId) {
   await initVideo(e);
   if(['/video_status','/check_status'].includes(text.split(/\s/)[0].split('@')[0])) {
-    const rows=(await sql(e,'SELECT id,title,status,progress FROM video_jobs WHERE chat=? ORDER BY created DESC LIMIT 5',id).all()).results;
+    const rows=(await sql(e,'SELECT id,title,status,progress,kind FROM video_jobs WHERE chat=? ORDER BY created DESC LIMIT 5',id).all()).results;
     const last=Number(await get(e,'video_agent_seen')||0);
-    await send(e,id,'Máy dựng: '+(Date.now()-last<120000?'đang kết nối':'chưa kết nối hoặc đang tắt')+'\n'+(rows.map(r=>r.id+' · '+r.status+' · '+r.title+'\n'+(r.progress||'')).join('\n\n')||'Chưa có yêu cầu video.'));return;
+    await send(e,id,'Máy dựng: '+(Date.now()-last<120000?'đang kết nối':'chưa kết nối hoặc đang tắt')+'\n'+(rows.map(r=>(r.kind==='workout'?'[BÀI TẬP] ':'[TIN TỨC] ')+r.id+' · '+r.status+' · '+r.title+'\n'+(r.progress||'')).join('\n\n')||'Chưa có yêu cầu video.'));return;
   }
-  const raw=text.replace(/^\/video(?:@\w+)?\s*/, '').trim();
+  const raw=text.replace(/^\/video(?:_tin)?(?:@\w+)?\s*/, '').trim();
   const url=safeURL(raw);
-  if(!url) {await send(e,id,'Gửi /video <link bài báo> để dựng video. /check_status xem tiến độ.');return;}
+  if(!url) {await send(e,id,'Gửi /video_tin <link bài báo> để dựng video tin tức. /video_tap dành riêng cho bài tập. /check_status xem tiến độ.');return;}
   let article=await sql(e,'SELECT * FROM articles WHERE url=?',url).first();
   if(!article){try{article=await loadArticle(url);}catch(err){await send(e,id,String(err.message));return;}}
   const pending=await sql(e,"SELECT COUNT(*) n FROM video_jobs WHERE status IN ('queued','running','uploading')").first();
@@ -36,14 +38,14 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.3.0-media'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.4.0-dual'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
   if(route==='/render/admin')return await adminSetup(e,await request.json());
   if(route==='/render/menu')return json(await syncMenu(e));
   if(route==='/render/audit')return json(await auditBot(e,(await request.json()).probeAI===true));
   if(route==='/render/claim') {
-    if(request.headers.get('x-runtime-version')!=='media-v3')return json({error:'Update required: start teleSetup media-v3 on the PC'},426);
+    if(request.headers.get('x-runtime-version')!=='dual-v1')return json({error:'Update required: start teleSetup dual-v1 on the PC'},426);
     await put(e,'video_agent_seen',Date.now());
     await sql(e,"UPDATE video_jobs SET status='uncertain',progress='Phiên gửi gián đoạn; kiểm tra Telegram trước khi gửi lại.' WHERE status='uploading' AND finished<?",Date.now()-10*60000).run();
     // A disconnected renderer keeps ownership; never automatically render twice.

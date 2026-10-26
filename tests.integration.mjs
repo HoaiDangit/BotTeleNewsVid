@@ -35,20 +35,13 @@ test('scheduled collection, private pairing, timed digest, duplicate protection 
     await message(1,123,'/start wrong');assert.equal(sent.length,0);
     await message(2,123,'/start '+code);assert.equal(sent.length,1);
     await message(3,999,'/tin');assert.equal(sent.length,2);assert.match(sent.at(-1).text,/danh sách được phép/);
-    await message(4,123,'/tim AI | 24h');assert.ok(sent.length>1);const before=sent.length;
+    await message(4,123,'/tin AI');assert.ok(sent.length>1);const before=sent.length;
     await message(4,123,'/tim AI | 24h');assert.equal(sent.length,before);
     await worker.scheduled({scheduledTime:Date.parse('2026-10-14T00:00:00Z')},env,{});
-    const edition=await env.DB.prepare("SELECT * FROM editions WHERE id LIKE '%:am'").first();assert.equal(edition.status,'sent');assert.equal(JSON.parse(edition.urls).length,10);
+    const edition=await env.DB.prepare("SELECT * FROM editions WHERE id LIKE '%:am'").first();assert.equal(edition.status,'sent');assert.equal(JSON.parse(edition.urls).length,5);
     const after=sent.length;await worker.scheduled({scheduledTime:Date.parse('2026-10-14T00:00:00Z')},env,{});assert.equal(sent.length,after);
     assert.ok(sent.every(x=>['123','999'].includes(String(x.chat_id))&&x.text.length<=4000));
-    const checks=[
-      ['/start','NewsAutoBear'],['/help','/check_status'],['/tin','TIN TRONG KHO'],
-      ['/tim','Ví dụ: /tim'],['/hoi','Ví dụ: /hoi'],['/hoi AI | 24h','Nguồn RSS'],
-      ['/sang','BẢN TIN'],['/toi','Chưa có bản tin'],['/trangthai','Kho tin'],
-      ['/nguon','VnExpress'],['/video','Gửi /video'],['/check_status','Máy dựng'],
-      ['/video_status','Máy dựng'],['/check_status@testbot','Máy dựng'],
-      ['/khong_ton_tai','Lệnh chưa hỗ trợ']
-    ];
+    const checks=[['/start','NewsAutoBear'],['/help','/check_status'],['/tin','5 TIN NỔI BẬT'],['/baitap','5 BÀI TẬP'],['/video_tin','Gửi /video_tin'],['/video_tap','Dùng /video_tap'],['/check_status','Máy dựng'],['/check_status@testbot','Máy dựng'],['/khong_ton_tai','Menu đã rút gọn']];
     for(let i=0;i<checks.length;i++){
       const n=sent.length;await message(100+i,123,checks[i][0]);
       assert.ok(sent.length>n,'No reply: '+checks[i][0]);
@@ -60,7 +53,7 @@ test('scheduled collection, private pairing, timed digest, duplicate protection 
     await message(201,999,'/allow 777');assert.match(sent.at(-1).text,/chưa phải quản trị viên/);
     assert.equal(await env.DB.prepare("SELECT v FROM state WHERE k='access:777'").first(),null);
     await message(202,123,'/allow 999');assert.ok(await env.DB.prepare("SELECT v FROM state WHERE k='access:999'").first());
-    await message(203,999,'/tin');assert.match(sent.at(-1).text,/TIN TRONG KHO/);
+    await message(203,999,'/tin');assert.match(sent.at(-1).text,/5 TIN NỔI BẬT/);
     await message(204,123,'/deny 123');assert.ok(await env.DB.prepare("SELECT v FROM state WHERE k='owner'").first());
     await message(205,123,'/users');assert.match(sent.at(-1).text,/999/);
     await message(206,999,'/video https://example.org/1');assert.equal((await env.DB.prepare("SELECT chat FROM video_jobs WHERE id='v206'").first()).chat,'999');
