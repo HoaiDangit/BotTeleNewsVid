@@ -43,7 +43,7 @@ export function saveReview(appRoot,state){
  const report=reviewScript(state.job,plan,approved);report.media=state.media||{assets:[]};
  if(state.media?.assets.length&&(plan.scenes||[]).some(s=>!s.image||!approved.includes(s.image))){report.errors.push('Có cảnh chưa gắn ảnh minh họa hợp lệ; chưa giao video.');report.status='blocked';}
  const dest=path.join(appRoot,'videos','telegram',state.job.id);fs.mkdirSync(dest,{recursive:true});
- fs.writeFileSync(path.join(dest,'IMAGE-CREDITS.txt'),(state.media?.assets||[]).map(a=>[a.title||'Ảnh được cho phép',a.author,a.sourcePage,a.license,a.licenseUrl||a.permissionEvidence,a.purpose].filter(Boolean).join(' | ')).join('\n'));
+ fs.writeFileSync(path.join(dest,'IMAGE-CREDITS.txt'),(state.media?.assets||[]).map(a=>[a.title||'Ảnh được cho phép',a.author,a.sourcePage,a.license,a.licenseUrl||a.permissionEvidence,a.changes,a.provenanceNote,a.purpose].filter(Boolean).join(' | ')).join('\n'));
  fs.writeFileSync(path.join(dest,'editorial-review.json'),JSON.stringify(report,null,2));
  fs.writeFileSync(path.join(dest,'CAN-DUYET-TRUOC-KHI-DANG.txt'),[report.notice,'Nguồn: '+report.source,...report.errors,...report.checklist,'\nKỊCH BẢN:\n'+report.script].join('\n'));
  if(report.errors.length)throw Error('Chặn giao video: '+report.errors.join(' '));

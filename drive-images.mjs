@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const id=s=>/^[a-zA-Z0-9_-]{6,160}$/.test(s||'');
 export function imageMime(bytes){
@@ -7,6 +8,17 @@ export function imageMime(bytes){
  if(bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return 'image/png';
  if(bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP')return 'image/webp';
  return null;
+}
+export function driveImageCredit(localPath,bytes){
+ const sidecar=path.join(path.dirname(localPath),'NGUON-ANH-BO-SUNG.json');
+ if(!fs.existsSync(sidecar))return {};
+ if(fs.statSync(sidecar).size>1000000)throw Error('Oversized image credit record');
+ const record=JSON.parse(fs.readFileSync(sidecar,'utf8')).assets?.find(a=>a.file===path.basename(localPath));
+ if(!record)return {};
+ if(record.sha256!==crypto.createHash('sha256').update(bytes).digest('hex'))throw Error('Image credit hash mismatch');
+ const licenses={'CC BY-SA 4.0':'https://creativecommons.org/licenses/by-sa/4.0/','Unlicense (as declared by source repository)':'https://unlicense.org/'};
+ if(licenses[record.license]!==record.licenseUrl||!record.author||!/^https:\/\//.test(record.sourcePage||''))throw Error('Unsupported image credit record');
+ return {author:record.author,license:record.license,licenseUrl:record.licenseUrl,sourcePage:record.sourcePage,changes:record.changes,sourceKind:record.kind,provenanceNote:record.provenanceNote||null};
 }
 export async function readLimited(response,max=6000000){
  if(!response.ok){await response.body?.cancel();throw Error('Drive HTTP '+response.status);}
@@ -85,7 +97,7 @@ export async function driveImages(config,job,{fetcher=fetch}={}){
   }
   if(job.kind==='workout'){
    const workout=JSON.parse(job.excerpt),terms=[workout.title,...(workout.aliases||[])].map(norm).filter(t=>t.length>3);
-   files=files.filter(f=>terms.some(t=>(' '+norm(f.name+' '+(f.description||''))+' ').includes(' '+t+' ')));
+   files=files.filter(f=>terms.some(t=>(' '+norm(f.name+' '+(f.description||'')+' '+(folder.exerciseName||''))+' ').includes(' '+t+' ')));
   }
   const text=norm([job.title,job.excerpt].join(' ')).split(' ').filter(w=>w.length>3);
   const jobText=' '+norm([job.title,job.excerpt].join(' '))+' ';
@@ -103,7 +115,8 @@ export async function driveImages(config,job,{fetcher=fetch}={}){
      bytes=await readLimited(await fetcher('https://www.googleapis.com/drive/v3/files/'+file.id+'?alt=media&supportsAllDrives=true',{redirect:'error',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)}));
     }
     const mime=imageMime(bytes);if(!mime)continue;
-    assets.push({bytes,mime,title:file.name,sourcePage:file.id?'https://drive.google.com/file/d/'+file.id+'/view':folder.sourcePage||'Google Drive synced library',license:'Permission recorded by owner',author:folder.author,permissionEvidence:folder.permissionEvidence,provider:'google-drive',exercise:folder.exerciseName||null,purpose:'Ảnh thư viện minh họa chủ đề, không phải bằng chứng sự kiện'});
+    const credit=file.localPath?driveImageCredit(file.localPath,bytes):{};
+    assets.push({bytes,mime,title:file.name,sourcePage:file.id?'https://drive.google.com/file/d/'+file.id+'/view':folder.sourcePage||'Google Drive synced library',license:'Permission recorded by owner',author:folder.author,permissionEvidence:folder.permissionEvidence,provider:'google-drive',exercise:folder.exerciseName||null,purpose:'Ảnh thư viện minh họa chủ đề, không phải bằng chứng sự kiện',...credit});
    }catch{/* Try the next image; the caller retains other image sources. */}
   }
  }

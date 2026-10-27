@@ -2,6 +2,8 @@
 
 Bot ưu tiên tối đa 2 ảnh từ thư viện Drive có chủ đề khớp tiêu đề, mô tả hoặc danh mục bài báo. Thiết lập các thư mục hẹp theo lĩnh vực và thêm keywords bằng tiếng Việt/Anh; tên ảnh và mô tả được dùng để xếp hạng trong thư mục. Đây là khớp từ khóa, không nhận diện nội dung ảnh bằng AI. Không chọn ngẫu nhiên ảnh của lĩnh vực khác. Tệp trùng nội dung được loại bỏ. Video vẫn dùng panel ảnh và nhãn minh họa của media-v3.
 
+Ảnh bổ sung có NGUON-ANH-BO-SUNG.json cạnh ảnh: assets chứa file, sha256, author, license, licenseUrl, sourcePage, changes và kind. Bot chỉ dùng metadata gắn đúng tên và hash ảnh; giữ nguồn/tác giả/giấy phép/thay đổi trong manifest và IMAGE-CREDITS.txt của video. Hiện hỗ trợ CC BY-SA 4.0 và Unlicense theo tuyên bố repository nguồn. Bảng đối chiếu hai tư thế được đánh dấu comparison-overview, không phải tư thế mới. Khi đăng video cần giữ phần ghi công và thực hiện điều kiện giấy phép tương ứng; tệp thông tin trên máy không tự được nền tảng mạng xã hội đăng kèm. Không khẳng định đã xác minh độc lập mọi quyền bên thứ ba.
+
 Sao chép drive-images.example.json thành .bridge/drive-images.json. Tệp riêng này không lên GitHub. Đổi enabled=true sau khi điền đường dẫn hoặc ID thư mục thực tế, author, permissionEvidence và authorized=true cho từng thư mục mà chủ sở hữu xác nhận quyền sử dụng. Việc lưu ảnh trên Drive không tự tạo quyền tái sử dụng. Không đặt khóa API hay mật khẩu trong chat.
 
 ## Drive đã đồng bộ trên Windows
