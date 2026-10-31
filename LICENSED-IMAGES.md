@@ -29,3 +29,8 @@ install-media.mjs thêm thay đổi giới hạn trong scripts/ui-server.mjs và
 Cloud Worker có kiểm tra X-Runtime-Version=media-v3 ở /render/claim. Đã triển khai Worker phiên bản bc4acf47 trên Cloudflare sau khi đăng nhập lại. /render/ping trả phiên bản 1.3.0-media; yêu cầu claim không có phiên bản runtime mới trả HTTP 426. GitHub không tự deploy.
 
 Đã dựng MP4 1045 khung/30 fps (khoảng 35 giây), tái dùng kịch bản/giọng đọc video gần nhất và gắn hai phác họa an toàn ngân hàng. Đã xem khung 3s/12s/28s, không che phụ đề. Đây là kiểm tra dựng bằng spec, chưa phải yêu cầu Telegram mới hoàn tất từ đầu tới cuối. Bản kiểm tra ở .bridge/proof/video-with-images-v2.mp4.
+## Cập nhật ngày 31/10/2026: ưu tiên ảnh bài báo
+
+Theo yêu cầu chủ bot, video tin tức mặc định tự đọc tối đa hai ảnh công khai từ chính bài nguồn (ảnh Open Graph và ảnh trong figure của article). Không còn bắt buộc nhập bản ghi quyền cho từng ảnh mới lấy từ bài báo. Không đảo lùi luồng bài tập hoặc các chức năng khác. Ảnh bài nguồn được nhập trước Drive và Wikimedia; thiếu ảnh vẫn dùng nguồn dự phòng/phác họa. Có thể đặt articleImages=false trong .bridge/config.json để tắt cách lấy này.
+
+Chỉ đọc các báo và CDN đã hỗ trợ, HTTPS, không đăng nhập hoặc vượt trang chặn. Giữ nguồn bài, URL ảnh, chú thích nếu có và trạng thái quyền chưa được kiểm chứng; không ghi thành ảnh CC0 hoặc ảnh được nhà báo cấp phép. Video vẫn là bản nháp cần duyệt trước khi đăng. Hình được ghi nhãn minh họa, không tự khẳng định đó là ảnh chụp sự kiện nếu nguồn chưa xác nhận.
