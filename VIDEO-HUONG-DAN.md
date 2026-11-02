@@ -34,3 +34,13 @@ Bố cục: mở đầu đúng chủ đề, dữ kiện đáng chú ý, giá tr�
 Kết bài cố định: Nếu bạn phát hiện thông tin chưa chính xác hoặc có thể gây hiểu nhầm, hãy để lại bình luận bên dưới, kèm nguồn đối chiếu nếu có, để mình kiểm tra, rút kinh nghiệm và cải thiện những bài viết sau. Cảm ơn bạn đã góp ý!
 
 Lỗi/hết hạn mức AI không hủy yêu cầu video. Bài nháp lưu trong D1 state theo social:<mã video>; trạng thái gửi không xác định không được tự gửi lại để tránh trùng.
+
+## Cập nhật nguồn và ảnh (02/11/2026)
+
+- Video tin mục tiêu 120–180 giây nếu nguồn đủ dữ kiện; không thêm dữ kiện để kéo dài. Lời đọc chỉ nhắc nguồn báo, không đọc tên giọng/công cụ hay trạng thái bản nháp.
+- Gửi ảnh JPEG/PNG/WebP (tối đa 6 MB) với caption `/video_tin https://trang-bao/bai-viet`, hoặc trả lời ảnh bằng lệnh đó. Ảnh dùng làm minh họa và ảnh bìa video Telegram; bản JPEG bìa được lưu cạnh MP4.
+- Ưu tiên ảnh bạn gửi, tiếp đến ảnh trang nguồn; khi không có ảnh sẽ thử chụp trang nguồn trong trình duyệt riêng. Giữ ảnh dự phòng nếu trang chặn hoặc không chụp được.
+- Chấp nhận trang HTTPS công khai, không còn giới hạn vào danh sách báo cố định. Không vượt đăng nhập/chặn truy cập; không phải mọi định dạng trang đều đọc được.
+- Nội dung tự nhập: `/video_tin Tên bài | Tên nguồn | Nội dung từ 300 ký tự`. Có link: `/video_tin URL | Tên bài | Tên nguồn | Nội dung`.
+- Tệp .txt UTF-8: tối đa 120 KB, nội dung 300–30000 ký tự, caption `/video_tin Tên bài | Tên nguồn | URL nếu có`.
+- Menu vẫn gồm 6 lệnh. Runtime source-media-v2 cần triển khai đồng bộ Cloudflare và cầu nối máy tính. Nguồn và trạng thái quyền ảnh được lưu ở manifest riêng.

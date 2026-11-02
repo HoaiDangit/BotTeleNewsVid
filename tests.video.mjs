@@ -9,13 +9,13 @@ test('queue isolates owner, claims once, sends to stored chat, names by source a
   const actual=globalThis.fetch, sent=[];let multipart='';
   const env={DB:database(),TELEGRAM_BOT_TOKEN:'fake',VIDEO_AGENT_SHA256:await hash('agent')};const pending=[],ctx={waitUntil:p=>pending.push(p)};
   globalThis.fetch=async(url,o)=>{if(url.endsWith('/sendVideo')){multipart=await new Response(o.body).text();return Response.json({ok:true,result:{message_id:77}});}if(url.includes('api.telegram.org')){sent.push(JSON.parse(o.body));return Response.json({ok:true,result:true});}if(url==='https://vietnamnet.vn/new-article.html')return new Response('<html><h1>Bài mới ngoài kho tin</h1><article><p>'+('Nội dung bài báo đã được xác minh từ trang nguồn. '.repeat(12))+'</p></article></html>',{headers:{'content-type':'text/html'}});return new Response('<rss></rss>');};
-  const api=(route,opts={})=>worker.fetch(new Request('https://test/render/'+route,{method:opts.method||'POST',headers:{Authorization:'Bearer agent','X-Runtime-Version':'dual-v1',...opts.headers},body:opts.method==='GET'?undefined:opts.body||'{}'}),env,ctx);
+  const api=(route,opts={})=>worker.fetch(new Request('https://test/render/'+route,{method:opts.method||'POST',headers:{Authorization:'Bearer agent','X-Runtime-Version':'source-media-v2',...opts.headers},body:opts.method==='GET'?undefined:opts.body||'{}'}),env,ctx);
   try{
     assert.equal((await worker.fetch(new Request('https://test/render/ping'),env,ctx)).status,403);
     assert.equal((await api('ping',{method:'GET'})).status,200);
     await env.DB.prepare("INSERT INTO state VALUES('owner','123')").run();
     assert.equal((await api('claim',{headers:{'X-Runtime-Version':'old'}})).status,426);
-    await env.DB.prepare('INSERT INTO articles(url,title,summary) VALUES(?,?,?)').bind('https://example.com/news','Công nghệ AI mới','RSS summary').run();
+    await env.DB.prepare('INSERT INTO articles(url,title,summary) VALUES(?,?,?)').bind('https://example.com/news','Công nghệ AI mới','Thông tin nguồn đủ dài để thử hàng đợi. '.repeat(40)).run();
     const secret=await hash('fake:webhook');
     const message=async(id,chat,text)=>{await worker.fetch(new Request('https://test/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':secret},body:JSON.stringify({update_id:id,message:{chat:{id:chat,type:'private'},text}})}),env,ctx);await Promise.all(pending.splice(0));};
     await message(1,999,'/video https://example.com/news');
@@ -45,4 +45,19 @@ test('SSE progress reader handles chunked UTF-8 JSON and closes the connection',
   const actual=globalThis.fetch;let cancelled=false;const bytes=new TextEncoder().encode('data: '+JSON.stringify({active:false,step:'completed',outputVideo:{title:'Công nghệ'}})+'\n\n');
   globalThis.fetch=async()=>new Response(new ReadableStream({start(c){for(let i=0;i<bytes.length;i+=7)c.enqueue(bytes.slice(i,i+7));},cancel(){cancelled=true;}}));
   try{assert.equal((await studioSnapshot('http://127.0.0.1:4000')).outputVideo.title,'Công nghệ');assert.equal(cancelled,true);}finally{globalThis.fetch=actual;}
+});
+
+test('manual sources and Telegram images stay attached to the requesting job',async()=>{
+ const original=globalThis.fetch, env={DB:database(),TELEGRAM_BOT_TOKEN:'fake',VIDEO_AGENT_SHA256:await hash('agent')},pending=[],ctx={waitUntil:p=>pending.push(p)};let video='';
+ globalThis.fetch=async(url,o)=>{if(url.endsWith('/getFile'))return Response.json({ok:true,result:{file_path:'photos/test.jpg',file_size:3}});if(url.includes('/file/bot'))return new Response(new Uint8Array([255,216,255]));if(url.endsWith('/sendPhoto'))return Response.json({ok:true,result:{photo:[{file_id:'newcover'}]}});if(url.endsWith('/sendVideo')){video=await new Response(o.body).text();return Response.json({ok:true,result:{message_id:1}});}if(url.includes('api.telegram.org'))return Response.json({ok:true,result:true});throw Error('Unexpected external request');};
+ const api=(r,body='{}',headers={})=>worker.fetch(new Request('https://bot/render/'+r,{method:'POST',headers:{Authorization:'Bearer agent','X-Runtime-Version':'source-media-v2',...headers},body}),env,ctx);
+ try{await api('claim');await env.DB.prepare("INSERT INTO state VALUES('owner','123')").run();const secret=await hash('fake:webhook');
+ const content='Dữ liệu sự kiện do người dùng cung cấp để viết kịch bản mới. '.repeat(10);
+ await worker.fetch(new Request('https://bot/telegram',{method:'POST',headers:{'X-Telegram-Bot-Api-Secret-Token':secret},body:JSON.stringify({update_id:99,message:{chat:{id:123,type:'private'},caption:'/video_tin Bài tự cung cấp | Tạp chí thử nghiệm | '+content,photo:[{file_id:'originalphoto',file_size:3}]}})}),env,ctx);await Promise.all(pending);
+ const job=(await (await api('claim')).json()).job;assert.equal(job.id,'v99');const payload=JSON.parse(job.payload);assert.equal(payload.sourceName,'Tạp chí thử nghiệm');assert.equal(payload.noPage,true);assert.equal(payload.media[0].fileId,'originalphoto');
+ assert.equal((await api('media',JSON.stringify({index:0}),{'X-Job-Id':job.id})).status,200);
+ assert.equal((await api('media',JSON.stringify({index:1}),{'X-Job-Id':job.id})).status,404);
+ const h={'X-Job-Id':job.id,'Content-Length':'3'};assert.equal((await api('thumbnail',new Uint8Array([255,216,255]),h)).status,200);assert.equal((await api('thumbnail',new Uint8Array([255,216,255]),h)).status,200);
+ assert.equal((await api('upload','mp4',h)).status,200);assert.ok(video.includes('name="cover"'));assert.ok(video.includes('newcover'));
+ }finally{globalThis.fetch=original;}
 });

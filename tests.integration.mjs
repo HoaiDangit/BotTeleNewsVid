@@ -17,6 +17,8 @@ function database(){
 test('scheduled collection, private pairing, timed digest, duplicate protection and search',async()=>{
   const realFetch=globalThis.fetch,sent=[],env={DB:database(),TELEGRAM_BOT_TOKEN:'test-token',AI_ENABLED:'false'};
   globalThis.fetch=async(url,options)=>{
+ if(url.includes('cloudflare-dns.com'))return Response.json({Answer:[{type:1,data:'93.184.216.34'}]});
+ if(/^https:\/\/example.org\//.test(url))return new Response('<h1>Nguồn đầy đủ</h1><article><p>'+('Thông tin bài nguồn đủ dữ kiện. '.repeat(35))+'</p></article>',{headers:{'content-type':'text/html'}});
     if(url.startsWith('https://api.telegram.org/')){
       const method=url.split('/').at(-1),body=JSON.parse(options.body);if(method==='sendMessage')sent.push(body);
       return Response.json({ok:true,result:method==='getMe'?{username:'testbot'}:true});

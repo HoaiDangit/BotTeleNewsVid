@@ -1,8 +1,10 @@
-// Public publisher pages only; no cookies, login bypass, or arbitrary image hosts.
+// Public publisher pages only; no cookies, login bypass, or private network hosts.
+import dns from 'node:dns/promises';
+import {publicURL,isPublicAddress} from './public-url.mjs';
 const PUBLISHERS=['vietnamnet.vn','vnexpress.net','dantri.com.vn','tuoitre.vn','thanhnien.vn','nhandan.vn','baochinhphu.vn','vov.vn','vtv.vn','vietnamplus.vn','tienphong.vn','laodong.vn','bbc.com','bbc.co.uk','reuters.com','apnews.com','theguardian.com','techcrunch.com','theverge.com','arstechnica.com'];
 const CDN=['vnecdn.net','vnncdn.net','vgcloud.vn','dantri.com.vn','tuoitre.vn','thanhnien.vn','nhandan.vn','baochinhphu.vn','vov.vn','vtv.vn','vietnamplus.vn','tienphong.vn','laodong.vn','bbci.co.uk','bbc.co.uk','bbc.com','reuters.com','reutersmedia.net','apnews.com','dims.apnews.com','guim.co.uk','theguardian.com','techcrunch.com','vox-cdn.com','theverge.com','arstechnica.net','arstechnica.com'];
 const matches=(h,list)=>list.some(x=>h===x||h.endsWith('.'+x));
-function urlFor(value,base,hosts){const u=new URL(value,base);if(u.protocol!=='https:'||u.username||u.password||(u.port&&u.port!=='443')||!matches(u.hostname,hosts))throw Error('Unsupported publisher image URL');return u.href;}
+function urlFor(value,base,hosts){if(!value)throw Error('Missing image URL');return publicURL(value,base).href;}
 const decode=s=>String(s||'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&#(\d+);/g,(_,n)=>Number(n)<=1114111?String.fromCodePoint(Number(n)):'');
 function attrs(tag){const a={};for(const m of tag.matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/gs))a[m[1].toLowerCase()]=decode(m[3]);return a;}
 export function articleImageCandidates(html,article){
@@ -15,9 +17,9 @@ export function articleImageCandidates(html,article){
  return results.slice(0,8);
 }
 async function bounded(response,max){if(!response.ok)throw Error('Publisher HTTP '+response.status);const r=response.body.getReader(),parts=[];let n=0;try{for(;;){const {done,value}=await r.read();if(done)break;n+=value.length;if(n>max)throw Error('Publisher media too large');parts.push(Buffer.from(value));}}finally{await r.cancel().catch(()=>{});}return Buffer.concat(parts);}
-async function get(url,hosts,fetcher){for(let i=0;i<4;i++){url=urlFor(url,undefined,hosts);const r=await fetcher(url,{redirect:'manual',headers:{Accept:'text/html,image/jpeg,image/png,image/webp'},signal:AbortSignal.timeout(12000)});if([301,302,303,307,308].includes(r.status)){await r.body?.cancel();url=urlFor(r.headers.get('location'),url,hosts);continue;}return {response:r,url};}throw Error('Too many publisher redirects');}
+async function get(url,hosts,fetcher){for(let i=0;i<4;i++){url=urlFor(url,undefined,hosts);const h=new URL(url).hostname;if(!matches(h,[...PUBLISHERS,...CDN])){const addresses=await dns.lookup(h,{all:true});if(!addresses.length||addresses.some(x=>!isPublicAddress(x.address)))throw Error('Non-public media host');}const r=await fetcher(url,{redirect:'manual',headers:{Accept:'text/html,image/jpeg,image/png,image/webp'},signal:AbortSignal.timeout(12000)});if([301,302,303,307,308].includes(r.status)){await r.body?.cancel();url=urlFor(r.headers.get('location'),url,hosts);continue;}return {response:r,url};}throw Error('Too many publisher redirects');}
 export async function articleImages(config,job,{fetcher=fetch}={}){
- if(job.kind==='workout'||config.articleImages===false)return [];
+ if(job.kind==='workout'||config.articleImages===false||JSON.parse(job.payload||'{}').noPage)return [];
  const initial=urlFor(job.url,undefined,PUBLISHERS),page=await get(initial,PUBLISHERS,fetcher);
  if(!(page.response.headers.get('content-type')||'').includes('text/html'))throw Error('Publisher page is not HTML');
  const html=(await bounded(page.response,2000000)).toString('utf8'),assets=[];

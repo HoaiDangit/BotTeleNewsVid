@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import {installMedia} from './install-media.mjs';
 import {runtimeFingerprint,RUNTIME_VERSION} from './runtime-version.mjs';
 import {licensedImages} from './licensed-images.mjs';
+import {makeThumbnail} from './user-media.mjs';
 import {pidAlive,agentAlive} from './runtime-status.mjs';
 import {editorialRequest,saveReview,POLICY_VERSION} from './editorial-policy.mjs';
 import path from 'node:path';
@@ -38,7 +39,7 @@ export async function studioSnapshot(studio) {
 async function cloud(config,route,{body={},job,raw}={}) {
   const headers={Authorization:'Bearer '+config.token,'X-Runtime-Version':RUNTIME_VERSION};
   if(job)headers['X-Job-Id']=job;
-  if(raw){headers['Content-Type']='video/mp4';headers['Content-Length']=String(fs.statSync(raw).size);}
+  if(raw){headers['Content-Type']=route==='thumbnail'?'image/jpeg':'video/mp4';headers['Content-Length']=String(fs.statSync(raw).size);}
   else headers['Content-Type']='application/json';
   const r=await fetch(config.cloud+'/render/'+route,{method:route==='ping'?'GET':'POST',headers,
     ...(route==='ping'?{}:{body:raw?fs.createReadStream(raw):JSON.stringify(body)}),duplex:'half',signal:AbortSignal.timeout(raw?240000:20000)});
@@ -114,6 +115,10 @@ async function processJob(config,job,resume) {
     if(state.editorialPolicy!==POLICY_VERSION)throw Error('Video dựng theo chính sách cũ; cần duyệt thủ công trước khi gửi.');
     saveReview(config.appRoot,state);
     const upload=await prepareUpload(config,state,state.source);
+    if(state.media?.thumbnail&&!state.thumbnailAttempted){
+      state.thumbnailAttempted=true;save(state);
+      try{const thumb=await makeThumbnail(config.appRoot,state.media.thumbnail,path.join(path.dirname(upload),'THUMBNAIL.jpg'));state.thumbnail=thumb;state.thumbnailUploaded=await cloud(config,'thumbnail',{job:job.id,raw:thumb});save(state);}catch{state.thumbnailWarning='Ảnh bìa chưa gửi được; giữ ảnh trên máy và tiếp tục gửi video.';save(state);}
+    }
     state.phase='uploading';save(state);
     const sent=await cloud(config,'upload',{job:job.id,raw:upload});
     state.phase='done';state.telegram=sent;save(state);

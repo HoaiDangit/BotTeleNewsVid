@@ -1,6 +1,8 @@
 import {drawSketch} from './sketch-images.mjs';
 import {driveImages} from './drive-images.mjs';
 import {articleImages} from './article-images.mjs';
+import {suppliedImages} from './user-media.mjs';
+import {captureArticle} from './article-screenshot.mjs';
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';
 const clean=s=>String(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
 const normalized=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase();
@@ -29,13 +31,16 @@ export async function licensedImages(config,job){
  fs.mkdirSync(archive,{recursive:true});
  const manifest={job:job.id,article:job.url,created:new Date().toISOString(),assets:[],notice:'Video tin ưu tiên ảnh công khai từ bài nguồn theo yêu cầu chủ bot; không suy ra quyền tái sử dụng từ việc ảnh có trên mạng. Nguồn và trạng thái quyền của từng ảnh được lưu riêng; cần duyệt trước khi đăng.'};
  const query=imageQuery(job);let candidates=[];
+ const supplied=await suppliedImages(config,job,archive);manifest.assets.push(...supplied.assets);if(supplied.thumbnail)manifest.thumbnail=supplied.thumbnail;
  try{
-  for(const {bytes,mime,...asset} of await articleImages(config,job)){
+  if(manifest.assets.length<2)for(const {bytes,mime,...asset} of await articleImages(config,job)){
+   if(manifest.assets.length>=2)break;
    const upload=await fetch(config.studio+'/api/user-images?name=article-'+job.id,{method:'POST',headers:{'Content-Type':mime},body:bytes,signal:AbortSignal.timeout(12000)});
    if(!upload.ok)continue;const result=await upload.json();if(!/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp)$/.test(result.id||''))continue;
    const sha256=crypto.createHash('sha256').update(bytes).digest('hex');fs.writeFileSync(path.join(archive,result.id),bytes);manifest.assets.push({...asset,id:result.id,sha256,retrieved:new Date().toISOString()});
   }
  }catch{manifest.articleImageError='Không lấy được ảnh công khai từ bài báo; dùng nguồn dự phòng.';}
+ if(!manifest.assets.length)try{const shot=await captureArticle(config,job);if(shot){const {bytes,mime,...asset}=shot;const r=await fetch(config.studio+'/api/user-images?name=source-screen-'+job.id,{method:'POST',headers:{'Content-Type':mime},body:bytes,signal:AbortSignal.timeout(12000)});if(r.ok){const data=await r.json();if(/^[\w-]+\.(png|jpe?g|webp)$/.test(data.id||'')){fs.writeFileSync(path.join(archive,data.id),bytes);manifest.assets.push({...asset,id:data.id,sha256:crypto.createHash('sha256').update(bytes).digest('hex')});}}}}catch{manifest.screenshotError='Trang nguồn chưa chụp được; dùng ảnh dự phòng.';}
  try{
   if(manifest.assets.length<2)
   for(const {bytes,mime,...asset} of await driveImages(config,job)){

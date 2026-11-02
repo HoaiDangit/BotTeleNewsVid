@@ -15,7 +15,7 @@ export const FEEDS = [
   ['BBC','world','https://feeds.bbci.co.uk/news/world/rss.xml']
 ];
 const LABEL = {tech:'Công nghệ/AI',business:'Kinh doanh thế giới',economy:'Kinh tế',music:'Âm nhạc',society:'Xã hội',travel:'Du lịch',environment:'Môi trường',culture:'Văn hóa',world:'Quốc tế'};
-const HELP = "NewsAutoBear — 2 luồng riêng: 07:00 gửi 5 tin nổi bật; 20:00 gửi 5 bài tập tham khảo (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 5 tin mới trong 24 giờ\n/baitap — 5 bài tập hôm nay\n/video_tin <link bài báo> — video tin tức\n/video_tap 1–5 — video từ bài tập hôm nay\n/video_tap Tên bài | Mô tả động tác | Mức tập (nếu có) | Link nguồn (nếu có) — video bài bạn cung cấp\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. Bài tập hỗ trợ vận động, không bảo đảm giảm cân. /start hoặc /help để xem lại hướng dẫn.";
+const HELP = "NewsAutoBear — 2 luồng riêng: 07:00 gửi 5 tin nổi bật; 20:00 gửi 5 bài tập tham khảo (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 5 tin mới trong 24 giờ\n/baitap — 5 bài tập hôm nay\n/video_tin <link bài báo> — video tin tức khoảng 2–3 phút khi đủ dữ kiện. Gửi kèm ảnh/screenshot hoặc trả lời ảnh bằng lệnh để dùng làm thumb và minh họa.\n/video_tin Tên bài | Tên nguồn | Nội dung — tự cung cấp nội dung (ít nhất 300 ký tự); cũng nhận tệp .txt UTF-8 với caption /video_tin Tên bài | Tên nguồn.\n/video_tap 1–5 — video từ bài tập hôm nay\n/video_tap Tên bài | Mô tả động tác | Mức tập (nếu có) | Link nguồn (nếu có) — video bài bạn cung cấp\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. Bài tập hỗ trợ vận động, không bảo đảm giảm cân. /start hoặc /help để xem lại hướng dẫn.";
 export const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const xmlText = s => String(s||'').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/<[^>]*>/g,' ').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{const v=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return v>0&&v<=0x10ffff?String.fromCodePoint(v):'';}).replace(/&(amp|lt|gt|quot|apos|nbsp);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '})[n]).replace(/\s+/g,' ').trim();
 const tag = (s,n) => (s.match(new RegExp('<'+n+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+n+'>','i'))||[])[1]||'';
@@ -59,6 +59,7 @@ export function timeRange(spec='24h',now=Date.now(),endSpec){
 }
 export function newsSignals(a){
   const text=norm((a.title||'')+' '+(a.summary||'')),reasons=[];let impact=0;
+  /** @type {Array<[RegExp, number, string]>} */
   const groups=[
     [/\b(viec lam|mat viec|that nghiep|cat giam nhan su|sa thai|labor market|layoffs|unemployment|jobs)\b/,18,'việc làm'],
     [/\b(thu nhap|tien luong|chi phi sinh hoat|gia dien|gia xang|lam phat|an sinh|cost of living|inflation|wages)\b/,18,'thu nhập và chi phí sống'],
@@ -128,7 +129,7 @@ async function digest(e,slot){
   catch{await sql(e,'UPDATE editions SET status=? WHERE id=?','uncertain',id).run();/* Do not blindly retry a potentially delivered Telegram message. */}
 }
 async function handle(e,u){
-  const m=u.message;if(!m?.text||m.chat.type!=='private')return;const text=m.text.trim().slice(0,2000).replace(/^(\/[a-z_]+)@\w+\b/i,'$1'),id=String(m.chat.id);let owner=await get(e,'owner');
+  const m=u.message;if(!(m?.text||m?.caption)||m.chat.type!=='private')return;const text=(m.text||m.caption).trim().slice(0,18000).replace(/^(\/[a-z_]+)@\w+\b/i,'$1'),id=String(m.chat.id);let owner=await get(e,'owner');
   if(!owner){const pairing=await get(e,'pair');if(!pairing)return;const p=JSON.parse(pairing);if(text==='/start '+p.code&&Date.now()<p.expires){await sql(e,"INSERT OR IGNORE INTO state(k,v) VALUES('owner',?)",id).run();owner=await get(e,'owner');if(owner===id){await sql(e,"DELETE FROM state WHERE k='pair'").run();await send(e,id,'Đã ghép nối riêng tư.\n'+HELP);}}return;}
   const claimed=await sql(e,'INSERT OR IGNORE INTO updates(id,created,status) VALUES(?,?,?)',u.update_id,Date.now(),'processing').run();if(!claimed.meta.changes)return;
   try{
@@ -136,8 +137,8 @@ async function handle(e,u){
     if(cmd==='/myid')await send(e,id,'Telegram ID của bạn: '+id+'\nVai trò: '+(id===owner?'quản trị viên':await get(e,'access:'+id)?'thành viên được phép':'chưa được cấp quyền')+'\nUsername không thay thế ID dạng số khi cấp quyền.');
     else if(['/allow','/deny','/users'].includes(cmd))await accessCommand(e,id,owner,text);
     else if(owner!==id&&!await get(e,'access:'+id))await send(e,id,'Bot dùng danh sách được phép. Gửi /myid rồi chuyển ID cho quản trị viên để xin quyền truy cập.');
-    else if(cmd==='/video_tap')await workoutVideoCommand(e,id,text,u.update_id);
-    else if(['/video_tin','/video','/video_status','/check_status'].includes(cmd))await videoCommand(e,id,text,u.update_id);
+    else if(cmd==='/video_tap')await workoutVideoCommand(e,id,text,u.update_id,m);
+    else if(['/video_tin','/video','/video_status','/check_status'].includes(cmd))await videoCommand(e,id,text,u.update_id,m);
     else if(cmd==='/start'||cmd==='/help')await send(e,id,HELP);
     else if(cmd==='/baitap')await workoutDigest(e,false,id);
     else if(cmd==='/tin'){
