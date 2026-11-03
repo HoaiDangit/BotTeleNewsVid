@@ -61,3 +61,7 @@ Cài bằng `installExplainer(appRoot)` từ `install-explainer.mjs`. Installer 
 - Nhiều bài cùng sự kiện: gộp dữ kiện, đối chiếu thời điểm, ghi nhận bất đồng. Bài khác chủ đề: chia mục trong một video tổng hợp. Không tự xem nhiều bài là nguồn độc lập. Link không đọc được được ghi rõ, chỉ dùng các nguồn đã đọc và tư liệu người gửi.
 - Ví dụ: `/video_tin Bổ sung bối cảnh về AI tại Việt Nam. https://bao-a.vn/bai-1 https://bao-b.vn/bai-2 So sánh các dữ kiện và chỉ rõ điểm chưa thống nhất.`
 - Runtime multi-source-v3 cần triển khai đồng bộ Worker và cầu nối máy tính; menu vẫn 6 lệnh. Không tự tìm thêm bài liên quan ngoài các link được gửi.
+
+## Sửa cửa sổ bật lên sau xuất video — quiet v2
+
+Bản quiet v1 mới bao phủ spawn/spawnSync, còn sót execFileSync trong kiểm tra khung hình sau render. Quiet v2 bổ sung windowsHide cho kiểm tra video, đo giọng, xử lý ảnh và tạo ảnh xem trước. Kiểm thử AST hiện kiểm tra cả execFileSync/execFile/execSync/exec/fork trong 9 mô-đun của luồng dựng. Đã chạy kiemVideo trên video cũ: 21 lần gọi FFmpeg đều có windowsHide=true, kiểm tra hoàn tất. Studio và cầu nối đã được nạp lại khi rảnh; không cần thay Worker Cloudflare.
