@@ -17,17 +17,17 @@ async function videoCommand(e,id,text,updateId,message={}) {
     await send(e,id,'Máy dựng: '+(Date.now()-last<120000?'đang kết nối':'chưa kết nối hoặc đang tắt')+'\n'+(rows.map(r=>(r.kind==='workout'?'[BÀI TẬP] ':'[TIN TỨC] ')+r.id+' · '+r.status+' · '+r.title+'\n'+(r.progress||'')).join('\n\n')||'Chưa có yêu cầu video.'));return;
   }
   const raw=text.replace(/^\/video(?:_tin)?(?:@\w+)?\s*/, '').trim();
-  if(!raw) {await send(e,id,'Gửi /video_tin <link bài báo>; có thể đính kèm ảnh làm thumb/minh họa. Hoặc /video_tin Tên bài | Tên nguồn | Nội dung tự cung cấp (ít nhất 300 ký tự). Tệp .txt: caption /video_tin Tên bài | Tên nguồn | Link (nếu có). /check_status xem tiến độ.');return;}
+  if(!raw&&!(message.document&&(message.document.mime_type==='text/plain'||/\.txt$/i.test(message.document.file_name||'')))) {await send(e,id,'Gửi /video_tin <link bài báo>; có thể đính kèm ảnh làm thumb/minh họa. Hoặc /video_tin Tên bài | Tên nguồn | Nội dung tự cung cấp (ít nhất 300 ký tự). Tệp .txt: caption /video_tin Tên bài | Tên nguồn | Link (nếu có). /check_status xem tiến độ.');return;}
   let article,payload;try{({article,payload}=await newsInput(e,raw,message));}catch(err){await send(e,id,String(err.message)+'\nNếu trang chặn hoặc thiếu nội dung, gửi /video_tin Tên bài | Tên nguồn | Nội dung hoặc tệp .txt UTF-8.');return;}
   const url=article.url;
   const pending=await sql(e,"SELECT COUNT(*) n FROM video_jobs WHERE status IN ('queued','running','uploading')").first();
   if(pending.n>=10){await send(e,id,'Đã có 10 video đang chờ/xử lý. Vui lòng đợi rồi gửi tiếp.');return;}
-  const duplicate=await sql(e,"SELECT id FROM video_jobs WHERE chat=? AND url=? AND (?=0 OR title=?) AND status IN ('queued','running','uploading')",id,url,payload.sourceType==='provided'?1:0,article.title).first();
+  const duplicate=await sql(e,"SELECT id FROM video_jobs WHERE chat=? AND (json_extract(payload,'$.inputHash')=? OR (payload IS NULL AND url=?)) AND status IN ('queued','running','uploading')",id,payload.inputHash,url).first();
   if(duplicate){await send(e,id,'Bài này đang chờ/xử lý: '+duplicate.id);return;}
   const job='v'+updateId;
   await sql(e,"INSERT OR IGNORE INTO video_jobs(id,chat,title,url,excerpt,created,status,payload) VALUES(?,?,?,?,?,?,'queued',?)",job,id,article.title,url,article.summary,Date.now(),JSON.stringify(payload)).run();
-  await send(e,id,'Đã xếp hàng '+job+': '+article.title+'\nVideo sẽ gửi về cuộc trò chuyện này. Máy tắt/sleep thì yêu cầu chờ. /check_status xem tiến độ.');
-  await prepareSocial(e,id,job,{...article,url});
+  await send(e,id,'Đã xếp hàng '+job+': '+article.title+(payload.sources.some(s=>!s.read)?'\nLưu ý: '+payload.sources.filter(s=>!s.read).map(s=>s.id+' chưa đọc được').join('; ')+'. Chỉ dùng phần đọc được và tư liệu bạn gửi.':'')+'\nVideo sẽ gửi về cuộc trò chuyện này. Máy tắt/sleep thì yêu cầu chờ. /check_status xem tiến độ.');
+  await prepareSocial(e,id,job,{...article,url,sources:payload.sources,sourceName:payload.sourceName,userProvided:!!payload.userText});
 }
 function videoFilename(title,time) {
   const base=norm(title).replace(/ /g,'-').slice(0,100)||'ban-tin';
@@ -38,14 +38,14 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.5.0-source-media'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.6.0-multi-source'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
   if(route==='/render/admin')return await adminSetup(e,await request.json());
   if(route==='/render/menu')return json(await syncMenu(e));
   if(route==='/render/audit')return json(await auditBot(e,(await request.json()).probeAI===true));
   if(route==='/render/claim') {
-    if(request.headers.get('x-runtime-version')!=='source-media-v2')return json({error:'Update required: start teleSetup source-media-v2 on the PC'},426);
+    if(request.headers.get('x-runtime-version')!=='multi-source-v3')return json({error:'Update required: start teleSetup multi-source-v3 on the PC'},426);
     await put(e,'video_agent_seen',Date.now());
     await sql(e,"UPDATE video_jobs SET status='uncertain',progress='Phiên gửi gián đoạn; kiểm tra Telegram trước khi gửi lại.' WHERE status='uploading' AND finished<?",Date.now()-10*60000).run();
     // A disconnected renderer keeps ownership; never automatically render twice.
@@ -93,7 +93,8 @@ async function videoAPI(request,e,ctx) {
     if(!locked.meta.changes)return json({error:'Already uploaded or upload uncertain',status:job.status},409);
     const boundary='NewsAutoBear'+crypto.randomUUID().replaceAll('-',''),enc=new TextEncoder();
     const field=(name,value)=>'--'+boundary+'\r\nContent-Disposition: form-data; name="'+name+'"\r\n\r\n'+value+'\r\n';
-    const caption=(job.title+'\nTạo lúc '+stamp(completed)+' (Việt Nam)\nNguồn: '+job.url+'\nMã: '+jobId).slice(0,1024);
+    const input=JSON.parse(job.payload||'{}'),sources=(input.sources||[]).filter(x=>x.read).map(x=>x.url);
+    const caption=(job.title+'\nTạo lúc '+stamp(completed)+' (Việt Nam)\nNguồn: '+(sources.length?sources.join('\n'):input.sourceName||job.url)+'\nMã: '+jobId).slice(0,1024);
     const cover=JSON.parse(await get(e,'cover:'+job.id)||'null')||(JSON.parse(job.payload||'{}').media||[]).find(x=>x.photo&&x.role!=='illustration');
     const prefix=enc.encode(field('chat_id',job.chat)+field('caption',caption)+field('supports_streaming','true')+(cover?.fileId?field('cover',cover.fileId):'')+'--'+boundary+'\r\nContent-Disposition: form-data; name="video"; filename="'+filename+'"\r\nContent-Type: video/mp4\r\n\r\n');
     const suffix=enc.encode('\r\n--'+boundary+'--\r\n');

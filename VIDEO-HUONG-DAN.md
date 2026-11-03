@@ -52,3 +52,12 @@ Video tin mới dùng thẻ nền sáng, sơ đồ thông tin xuất hiện theo
 Cài bằng `installExplainer(appRoot)` từ `install-explainer.mjs`. Installer sao lưu các tệp bị sửa dưới .bridge/studio-backups và chỉ kích hoạt chế độ mới với marker `[NewsAutoBear explain-web-v1]`; video bài tập và yêu cầu Studio thông thường giữ nhánh cũ. Cần khởi động lại riêng Studio Telegram khi không có video đang dựng, rồi khởi động cầu nối để nạp fingerprint mới. Không đổi menu hoặc dịch vụ Cloudflare.
 
 Đã bỏ giới hạn prompt chung 50–100 giây cho riêng chế độ giải thích: mục tiêu 3–4 phút khi đủ dữ kiện, không kéo dài nguồn ngắn. Bản dựng thử từ nguồn dài có 8 cảnh, 604 từ; thời lượng cuối phụ thuộc TTS.
+
+## Chạy ẩn và nhập tự do nhiều nguồn (03/11/2026)
+
+- Cài `installQuiet(appRoot)` hoặc `installExplainer(appRoot)` để bổ sung windowsHide vào các tiến trình Node/FFmpeg của UI, TTS, thử giọng, video bài báo, ghi demo và kiểm tra nguồn. Các bản gốc được sao lưu dưới .bridge/studio-backups. Cần khởi động lại Studio đang mở khi rảnh để nạp mã mới.
+- Sau /video_tin, viết tự do và đặt link ở bất kỳ đâu. Toàn bộ nội dung tin nhắn/caption/tệp .txt được lưu trong payload.userText và đưa vào tư liệu kịch bản, không coi phần sau link chỉ là tên nguồn. Bot tự tách tối đa 5 link HTTPS công khai, bỏ link trùng và nhận link ẩn của Telegram.
+- Gửi tối đa 30000 ký tự tư liệu; tệp .txt UTF-8 tối đa 120 KB. Nếu vượt giới hạn bot báo lỗi thay vì âm thầm bỏ nội dung. Nội dung bài đọc từ web được phân bổ dung lượng hợp lý và ghi rõ nếu chỉ lấy trích đoạn.
+- Nhiều bài cùng sự kiện: gộp dữ kiện, đối chiếu thời điểm, ghi nhận bất đồng. Bài khác chủ đề: chia mục trong một video tổng hợp. Không tự xem nhiều bài là nguồn độc lập. Link không đọc được được ghi rõ, chỉ dùng các nguồn đã đọc và tư liệu người gửi.
+- Ví dụ: `/video_tin Bổ sung bối cảnh về AI tại Việt Nam. https://bao-a.vn/bai-1 https://bao-b.vn/bai-2 So sánh các dữ kiện và chỉ rõ điểm chưa thống nhất.`
+- Runtime multi-source-v3 cần triển khai đồng bộ Worker và cầu nối máy tính; menu vẫn 6 lệnh. Không tự tìm thêm bài liên quan ngoài các link được gửi.

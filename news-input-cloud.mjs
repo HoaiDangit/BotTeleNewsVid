@@ -1,5 +1,5 @@
 function inputMedia(message){
- const m=message.photo?.length||message.document?message:message.reply_to_message||{};
+ const m=message.photo?.length||/^image\//.test(message.document?.mime_type||'')?message:message.reply_to_message||{};
  const photo=(m.photo||[]).filter(x=>!x.file_size||x.file_size<=6000000).at(-1);
  const d=m.document;
  const image=photo?{fileId:photo.file_id,mime:'image/jpeg',photo:true}:d&&/^image\/(jpeg|png|webp)$/.test(d.mime_type||'')?{fileId:d.file_id,mime:d.mime_type,photo:false}:null;
@@ -16,20 +16,16 @@ async function telegramFileBytes(e,fileId,max){
  const bytes=new Uint8Array(size);let offset=0;for(const p of parts){bytes.set(p,offset);offset+=p.length;}return bytes;
 }
 async function newsInput(e,raw,message){
- const parts=raw.split('|').map(x=>x.trim()),media=inputMedia(message),payload={media};let article;
- if(message.document&&(message.document.mime_type==='text/plain'||/\.txt$/i.test(message.document.file_name||''))){
-  if(message.document.file_size>120000)throw Error('Tệp .txt tối đa 120 KB.');
-  const bytes=await telegramFileBytes(e,message.document.file_id,120000);const summary=new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(bytes).replace(/^\uFEFF/,'').trim();
-  if(summary.length<300||summary.length>30000||!parts[0]||!parts[1])throw Error('Gửi tệp .txt UTF-8 và caption /video_tin Tên bài | Tên nguồn | Link nguồn (nếu có); nội dung 300–30000 ký tự.');
-  const url=parts[2]?articleURL(parts[2]):'https://t.me/newsautobeartalk_bot';article={title:parts[0].slice(0,250),summary,url};Object.assign(payload,{sourceType:'provided',sourceName:parts[1].slice(0,100),noPage:!parts[2]});
- }else if(parts.length>=3&&!/^https:\/\//i.test(parts[0])){
-  const summary=parts.slice(2).join(' | ');if(summary.length<300||summary.length>30000)throw Error('Nội dung tự nhập cần 300–30000 ký tự. Dùng /video_tin Tên bài | Tên nguồn | Nội dung.');
-  article={title:parts[0].slice(0,250),summary,url:'https://t.me/newsautobeartalk_bot'};Object.assign(payload,{sourceType:'provided',sourceName:parts[1].slice(0,100),noPage:true});
- }else{
-  const url=articleURL(parts[0]);
-  if(parts.length>=4){const summary=parts.slice(3).join(' | ');if(summary.length<300||summary.length>30000)throw Error('Nội dung cần 300–30000 ký tự.');article={url,title:parts[1].slice(0,250),summary};Object.assign(payload,{sourceType:'provided',sourceName:parts[2].slice(0,100)});}
-  else{article=await sql(e,'SELECT * FROM articles WHERE url=?',url).first();if(!article||article.summary.length<1000){try{article=await loadArticle(url);}catch(err){if(!article||article.summary.length<300)throw err;payload.sourceExcerpt=true;}} payload.sourceName=(parts[1]||new URL(article.url||url).hostname).slice(0,100);}
- }
- if(!article.title?.trim()||!payload.sourceName?.trim())throw Error('Cần tên bài và tên nguồn rõ ràng.');
- return {article,payload};
+ let all=raw;const doc=message.document;
+ if(doc&&(doc.mime_type==='text/plain'||/\.txt$/i.test(doc.file_name||''))){if(doc.file_size>120000)throw Error('Tệp .txt tối đa 120 KB.');const bytes=await telegramFileBytes(e,doc.file_id,120000);const attached=new TextDecoder('utf-8',{fatal:true,ignoreBOM:false}).decode(bytes).replace(/^\uFEFF/,'');all+=(all?'\n\n':'')+attached;}
+ const parsed=parseNewsText(all,message.entities||message.caption_entities||[]),payload={media:inputMedia(message),userText:parsed.userText,sources:[],inputHash:await sha(parsed.userText+'\n'+JSON.stringify(parsed.urls)),sourceType:'combined'};
+ const results=await Promise.all(parsed.urls.map(async url=>{try{let a=await sql(e,'SELECT * FROM articles WHERE url=?',url).first();if(!a||a.summary.length<1000){try{a=await loadArticle(url);}catch(err){if(!a||a.summary.length<300)throw err;}}return {url:a.url||url,title:a.title,summary:a.summary,read:true};}catch{return {url,title:new URL(url).hostname,read:false,error:'Không đọc được nội dung trang; không coi là dữ kiện đã thu thập.'};}}));
+ const readable=results.filter(x=>x.read);
+ if(!readable.length&&parsed.providedLength<300)throw Error('Chưa đọc được đủ nội dung. Gửi thêm ít nhất 300 ký tự hoặc tệp .txt cùng các link nguồn.');
+ const names=readable.map(x=>new URL(x.url).hostname);payload.sourceName=names.length?[...new Set(names)].join(', '):(parsed.sourceName||'Người dùng cung cấp');payload.noPage=!readable.length;
+ const budget=Math.max(1000,Math.floor((36000-parsed.userText.length)/Math.max(1,readable.length)));
+ payload.sources=results.map((x,i)=>({id:'S'+(i+1),url:x.url,title:x.title,read:x.read,...(!x.read?{error:x.error}:{characters:x.summary.length,truncated:x.summary.length>budget})}));
+ const sections=['[TƯ LIỆU NGƯỜI GỬI — chưa kiểm chứng; giữ nguyên toàn bộ nội dung]\n'+parsed.userText,...results.map((x,i)=>'[S'+(i+1)+'] '+x.title+'\nURL: '+x.url+'\n'+(x.read?x.summary.slice(0,budget)+(x.summary.length>budget?'\n[Trích đoạn nguồn đã rút gọn để giới hạn dung lượng]':''):x.error))];
+ const first=readable[0];const title=parsed.title|| (first?first.title+(readable.length>1?' · Tổng hợp '+readable.length+' bài':''):(raw.trim()?parsed.userText.split('\n')[0].slice(0,120):String(doc?.file_name||'Nội dung người dùng cung cấp').replace(/\.txt$/i,'')));
+ return {article:{title:title.slice(0,250),url:first?.url||parsed.urls[0]||'https://t.me/newsautobeartalk_bot',summary:sections.join('\n\n'),socialSummary:'Tư liệu người gửi (trích): '+parsed.userText.slice(0,2000)+'\n'+readable.map(x=>x.title+'\n'+x.url+'\n'+x.summary.slice(0,1400)).join('\n\n')},payload};
 }

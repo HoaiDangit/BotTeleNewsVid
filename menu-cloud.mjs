@@ -2,7 +2,7 @@ const BOT_COMMANDS=[
   {command:'myid',description:'Xác nhận Telegram ID và quyền truy cập'},
   {command:'tin',description:'5 tin nổi bật mới nhất; có thể thêm từ khóa'},
   {command:'baitap',description:'5 bài tập tham khảo hôm nay'},
-  {command:'video_tin',description:'Tạo video tin tức từ link bài báo'},
+  {command:'video_tin',description:'Tổng hợp link bài báo và nội dung thành video'},
   {command:'video_tap',description:'Tạo video bài tập: chọn số hoặc nhập mô tả'},
   {command:'check_status',description:'Kiểm tra máy dựng và tiến độ video'},
 ];

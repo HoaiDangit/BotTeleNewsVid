@@ -18,7 +18,7 @@ export function articleImageCandidates(html,article){
 }
 async function bounded(response,max){if(!response.ok)throw Error('Publisher HTTP '+response.status);const r=response.body.getReader(),parts=[];let n=0;try{for(;;){const {done,value}=await r.read();if(done)break;n+=value.length;if(n>max)throw Error('Publisher media too large');parts.push(Buffer.from(value));}}finally{await r.cancel().catch(()=>{});}return Buffer.concat(parts);}
 async function get(url,hosts,fetcher){for(let i=0;i<4;i++){url=urlFor(url,undefined,hosts);const h=new URL(url).hostname;if(!matches(h,[...PUBLISHERS,...CDN])){const addresses=await dns.lookup(h,{all:true});if(!addresses.length||addresses.some(x=>!isPublicAddress(x.address)))throw Error('Non-public media host');}const r=await fetcher(url,{redirect:'manual',headers:{Accept:'text/html,image/jpeg,image/png,image/webp'},signal:AbortSignal.timeout(12000)});if([301,302,303,307,308].includes(r.status)){await r.body?.cancel();url=urlFor(r.headers.get('location'),url,hosts);continue;}return {response:r,url};}throw Error('Too many publisher redirects');}
-export async function articleImages(config,job,{fetcher=fetch}={}){
+async function articleImagesOne(config,job,{fetcher=fetch}={}){
  if(job.kind==='workout'||config.articleImages===false||JSON.parse(job.payload||'{}').noPage)return [];
  const initial=urlFor(job.url,undefined,PUBLISHERS),page=await get(initial,PUBLISHERS,fetcher);
  if(!(page.response.headers.get('content-type')||'').includes('text/html'))throw Error('Publisher page is not HTML');
@@ -27,4 +27,9 @@ export async function articleImages(config,job,{fetcher=fetch}={}){
   try{const {response}=await get(candidate.url,[...CDN,...PUBLISHERS],fetcher),mime=(response.headers.get('content-type')||'').split(';')[0];if(!['image/jpeg','image/png','image/webp'].includes(mime)){await response.body?.cancel();continue;}const bytes=await bounded(response,6000000);const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpeg=bytes[0]===255&&bytes[1]===216,webp=bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP';if(!png&&!jpeg&&!webp)continue;if(assets.some(a=>a.bytes.equals(bytes)))continue;assets.push({...candidate,bytes,mime});if(assets.length===2)break;}catch{/* Use the next public source image; never bypass a blocked page. */}
  }
  return assets;
+}
+
+export async function articleImages(config,job,options={}){
+ const sources=(JSON.parse(job.payload||'{}').sources||[]).filter(s=>s.read);if(sources.length<2)return articleImagesOne(config,job,options);
+ const assets=[];for(const source of sources){if(assets.length>=2)break;try{const found=await articleImagesOne(config,{...job,url:source.url},options);const image=found.find(a=>!assets.some(b=>b.bytes.equals(a.bytes)));if(image)assets.push({...image,sourceId:source.id});}catch{}}return assets;
 }

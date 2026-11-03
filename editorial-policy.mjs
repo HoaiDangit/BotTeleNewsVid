@@ -2,16 +2,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {workoutRequest,reviewWorkout} from './workout-editorial.mjs';
-export const POLICY_VERSION='editorial-explainer-4';
+export const POLICY_VERSION='editorial-multisource-5';
 export function editorialRequest(job,marker,media={assets:[]}){
  if(job.kind==='workout')return workoutRequest(job,marker,media);
  const payload=JSON.parse(job.payload||'{}');
  const host=payload.sourceName||new URL(job.url).hostname;
+ const sources=(payload.sources||[]).filter(s=>s.read);
+ const sourceRule=sources.length>1?'Có '+sources.length+' bài nguồn đã đọc: '+sources.map(s=>s.id+' '+new URL(s.url).hostname+' — '+s.title).join('; ')+'. Đây là các bài được cung cấp, không tự coi là nguồn độc lập hay đã xác minh chéo.':'Nguồn thông tin được cung cấp: '+host+'.';
  const context=`${marker}
 [NewsAutoBear explain-web-v1]
 YÊU CẦU BIÊN TẬP BẮT BUỘC:
 Tạo kịch bản tiếng Việt giải thích chuyên sâu mục tiêu 180–240 giây, khoảng 800–1100 từ tính theo khoảng trắng nếu nguồn đủ dữ kiện. Bài ít thông tin có thể ngắn hơn. Đây là bản nháp để chủ kênh duyệt; không đọc trạng thái bản nháp trong lời dẫn. Nếu nguồn quá ngắn, ưu tiên chính xác và nói rõ giới hạn thông tin; không kéo dài bằng suy đoán hay lặp câu.
-Nguồn duy nhất hiện được cung cấp: ${host}. Không tuyên bố đã kiểm chứng độc lập, có hai nguồn hay được chủ báo cấp phép.
+${sourceRule} Không tuyên bố đã kiểm chứng độc lập hay được chủ báo cấp phép.
+Giữ mọi tư liệu người gửi trong phạm vi tham khảo, không mặc nhiên coi là xác nhận của tờ báo. Các nguồn có nhãn chưa đọc được chỉ là link tham chiếu, không suy đoán nội dung. Nếu các bài cùng chủ đề, gộp dữ kiện trùng, đối chiếu thời điểm và nêu bất đồng. Nếu khác chủ đề, tách thành các mục rõ ràng trong một video tổng hợp; không ép quan hệ nhân quả. Mỗi số liệu/phát biểu phải quy về bài tương ứng. Cuối video nêu đủ tên các nguồn đã dùng và tư liệu người gửi nếu sử dụng.
 Trình bày 5–7 ý khi nguồn cung cấp đủ: việc gì xảy ra, ai liên quan, diễn biến/bối cảnh, dữ kiện nổi bật, tác động được nguồn nêu và điểm còn chưa rõ. Giải thích các khái niệm theo dữ kiện được cấp, chuyển ý tự nhiên; viết lời dẫn và bố cục mới. Không đọc lại, dịch nguyên bài, thay từ đồng nghĩa từng câu, sao chép cách kể hoặc trích nguyên văn. Tên riêng và tên sản phẩm được giữ chính xác.
 Mở lời bằng “Theo ${host}”. Phân biệt sự kiện với nhận định của nhà sản xuất/tác giả. Nhận định như “mạnh nhất”, “đầu tiên” phải quy rõ cho bên phát biểu; không biến quảng cáo thành kết luận của kênh.
 Không bổ sung số liệu, giá, ngày, địa danh, lời trích hoặc quan hệ nhân quả ngoài nguồn. Có thể giải thích hệ quả logic dưới nhãn “Góc nhìn tham khảo” với ngôn ngữ có điều kiện, chỉ dựa trên dữ kiện nguồn; phân biệt với kết luận của bài báo. Phần tác động với Việt Nam chỉ nêu câu hỏi cần kiểm tra khi nguồn chưa có bằng chứng; không tự tạo phân tích thực chứng.
@@ -28,8 +31,8 @@ export function reviewScript(job,plan,approvedImages=[]){
  if(job.kind==='workout')return reviewWorkout(job,plan,approvedImages);
  const text=(plan.scenes||[]).map(s=>s.text||'').join('\n'); const errors=[];
  if(text.length<100)errors.push('Kịch bản thiếu hoặc quá ngắn.');
- const host=JSON.parse(job.payload||'{}').sourceName||new URL(job.url).hostname;
- if(!text.includes(host))errors.push('Thiếu tên nguồn trong lời dẫn.');
+ const payload=JSON.parse(job.payload||'{}');const names=[...new Set((payload.sources||[]).filter(s=>s.read).map(s=>new URL(s.url).hostname))];if(!names.length)names.push(payload.sourceName||new URL(job.url).hostname);
+ if(names.some(name=>!text.includes(name)))errors.push('Thiếu tên một hoặc nhiều nguồn trong lời dẫn.');
  if(/giọng đọc tổng hợp|nguồn voice|công cụ làm âm/i.test(text))errors.push('Lời đọc còn thông tin giọng/công cụ không cần thiết.');
  const source=words(job.excerpt),output=words(text);const phrases=new Set();
  for(let i=0;i+18<=source.length;i++)phrases.add(source.slice(i,i+18).join(' '));
@@ -42,7 +45,7 @@ export function saveReview(appRoot,state){
  const plan=JSON.parse(fs.readFileSync(path.join(dir,'plan.json'),'utf8'));
  const approved=[];
  for(const scene of plan.scenes||[]){if(!scene.image)continue;const file=path.resolve(appRoot,'public',scene.image),publicRoot=path.resolve(appRoot,'public')+path.sep;if(!file.startsWith(publicRoot))continue;try{const hash=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');if(state.media?.assets.some(a=>a.sha256===hash))approved.push(scene.image);}catch{}}
- const report=reviewScript(state.job,plan,approved);report.media=state.media||{assets:[]};
+ const report=reviewScript(state.job,plan,approved);report.media=state.media||{assets:[]};report.sources=JSON.parse(state.job.payload||'{}').sources||[];
  if(state.media?.assets.length&&(plan.scenes||[]).some(s=>!s.image||!approved.includes(s.image))){report.errors.push('Có cảnh chưa gắn ảnh minh họa hợp lệ; chưa giao video.');report.status='blocked';}
  const dest=path.join(appRoot,'videos','telegram',state.job.id);fs.mkdirSync(dest,{recursive:true});
  fs.writeFileSync(path.join(dest,'IMAGE-CREDITS.txt'),(state.media?.assets||[]).map(a=>[a.title||'Ảnh được cho phép',a.author,a.sourcePage,a.license,a.licenseUrl||a.permissionEvidence,a.changes,a.provenanceNote,a.purpose].filter(Boolean).join(' | ')).join('\n'));
