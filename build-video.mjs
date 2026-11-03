@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 const base=fs.readFileSync(new URL('worker.mjs',import.meta.url),'utf8');
+const health=fs.readFileSync(new URL('video-health-cloud.mjs',import.meta.url),'utf8');
 const video=fs.readFileSync(new URL('video-cloud.mjs',import.meta.url),'utf8');
 const article=fs.readFileSync(new URL('article-cloud.mjs',import.meta.url),'utf8');
 const social=fs.readFileSync(new URL('social-cloud.mjs',import.meta.url),'utf8');
@@ -10,4 +11,4 @@ const publicUrls=fs.readFileSync(new URL('public-url.mjs',import.meta.url),'utf8
 const inputParser=fs.readFileSync(new URL('news-input-parse.mjs',import.meta.url),'utf8').replace(/^import .*;\r?\n/m,'').replace(/export (const|function) /g,'$1 ');
 const newsInput=fs.readFileSync(new URL('news-input-cloud.mjs',import.meta.url),'utf8');
 const workout=fs.readFileSync(new URL('workout-catalog.mjs',import.meta.url),'utf8').replace(/export (const|function) /g,'$1 ')+ '\n'+fs.readFileSync(new URL('workout-cloud.mjs',import.meta.url),'utf8');
-fs.writeFileSync(new URL('worker.deploy.mjs',import.meta.url),publicUrls+'\n'+base.replace(/export (const|function) /g,'$1 ')+ '\n'+video+'\n'+article+'\n'+menu+'\n'+social+'\n'+access+'\n'+admin+'\n'+workout+'\n'+inputParser+'\n'+newsInput);
+fs.writeFileSync(new URL('worker.deploy.mjs',import.meta.url),publicUrls+'\n'+base.replace(/export (const|function) /g,'$1 ')+ '\n'+video+'\n'+article+'\n'+menu+'\n'+social+'\n'+access+'\n'+admin+'\n'+workout+'\n'+inputParser+'\n'+newsInput+'\n'+health);

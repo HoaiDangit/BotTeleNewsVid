@@ -20,9 +20,10 @@ async function auditBot(e,probeAI=false) {
   const articles=await sql(e,'SELECT COUNT(*) n FROM articles').first();
   const editions=(await sql(e,'SELECT id,status,created FROM editions ORDER BY created DESC LIMIT 4').all()).results;
   const recent=(await sql(e,'SELECT status,COUNT(*) n FROM video_jobs GROUP BY status').all()).results;
+  const videoTiming=(await sql(e,"SELECT id,status,created,started,finished,progress FROM video_jobs ORDER BY created DESC LIMIT 12").all()).results;
   let aiProbe=null;
   let availableModels=null;
   if(probeAI){const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models',{headers:{'x-goog-api-key':e.GEMINI_API_KEY},signal:AbortSignal.timeout(10000)});const data=await r.json();availableModels={status:r.status,names:(data.models||[]).filter(m=>m.supportedGenerationMethods?.includes('generateContent')).map(m=>m.name)};}
   if(probeAI){const article=await sql(e,'SELECT title,summary FROM articles ORDER BY published DESC LIMIT 1').first();if(article)aiProbe=!!await gemini(e,'Kiểm tra kết nối: tóm tắt trích đoạn này trong một câu tiếng Việt: '+JSON.stringify(article));}
-  return {configuredModel:e.GEMINI_MODEL,probeModel:e.GEMINI_MODEL,webhook:{configured:!!webhook.url,pending: webhook.pending_update_count,lastError:webhook.last_error_message||null},articles:articles.n,editions,videos:recent,agentSeen:Number(await get(e,'video_agent_seen')||0),aiStatus:await get(e,'ai_status'),aiProbe,availableModels,commands:await telegram(e,'getMyCommands',{})};
+  return {configuredModel:e.GEMINI_MODEL,probeModel:e.GEMINI_MODEL,webhook:{configured:!!webhook.url,pending: webhook.pending_update_count,lastError:webhook.last_error_message||null},articles:articles.n,editions,videos:recent,videoTiming,agentSeen:Number(await get(e,'video_agent_seen')||0),aiStatus:await get(e,'ai_status'),aiProbe,availableModels,commands:await telegram(e,'getMyCommands',{})};
 }

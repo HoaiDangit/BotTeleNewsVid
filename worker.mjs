@@ -177,7 +177,7 @@ export default {
     }catch{return json({error:'Dịch vụ chưa sẵn sàng; kiểm tra binding DB và Secrets.'},503);}
   },
   async scheduled(event,e,ctx){
-    await init(e);const t=new Date(event.scheduledTime),slot=Math.floor(event.scheduledTime/180000);
+    await init(e);await videoHealth(e);const t=new Date(event.scheduledTime),slot=Math.floor(event.scheduledTime/180000);
     if(t.getUTCMinutes()===0&&(t.getUTCHours()===0||t.getUTCHours()===13))await digest(e,t.getUTCHours()===0?'am':'pm');
     await collect(e,slot);
     if(t.getUTCHours()===18&&t.getUTCMinutes()===0)await e.DB.batch([sql(e,'DELETE FROM articles WHERE published<?',Date.now()-30*86400000),sql(e,'DELETE FROM updates WHERE created<?',Date.now()-3*86400000),sql(e,'DELETE FROM editions WHERE created<?',Date.now()-30*86400000),sql(e,'DELETE FROM usage WHERE day<?',localDay(Date.now()-30*86400000))]);

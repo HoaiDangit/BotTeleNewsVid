@@ -1,3 +1,4 @@
+import {observeJob,appendEvent,redactError} from './video-observer.mjs';
 import fs from 'node:fs';
 import {installExplainer} from './install-explainer.mjs';
 import {runtimeFingerprint,RUNTIME_VERSION} from './runtime-version.mjs';
@@ -17,6 +18,8 @@ const CONFIG=path.join(PRIVATE,'config.json');
 const RUNTIME=path.join(PRIVATE,'runtime-v3');
 const JOURNAL=path.join(RUNTIME,'current.json');
 const log=s=>console.log(new Date().toISOString()+' '+s);
+const event=(data)=>appendEvent(path.join(PRIVATE,'video-events.jsonl'),data);
+
 const save=data=>{fs.writeFileSync(JOURNAL+'.tmp',JSON.stringify(data,null,2));fs.renameSync(JOURNAL+'.tmp',JOURNAL);};
 export function filename(title,time) {
   const base=String(title).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,100)||'ban-tin';
@@ -85,7 +88,7 @@ async function processJob(config,job,resume) {
     if(job.status==='uploading'){log('Gửi video chưa xác nhận: '+job.id+'; cần kiểm tra Telegram.');return;}
     await cloud(config,'fail',{job:job.id,body:{error:'Phiên dựng trước bị gián đoạn; vui lòng gửi lại /video sau khi kiểm tra ứng dụng.'}});return;
   }
-  if(!resume){state={job,phase:'starting',marker:'[NewsAutoBear '+job.id+']'};save(state);
+  if(!resume){state={job,startedAt:Date.now(),phase:'starting',marker:'[NewsAutoBear '+job.id+']'};save(state);
     state.editorialPolicy=POLICY_VERSION;save(state);
     state.media=await licensedImages(config,job);save(state);
     if(!state.media.assets.length)throw Error('Không chuẩn bị được ảnh minh họa; kiểm tra manifest thay vì dựng video chỉ chữ.');
@@ -102,13 +105,14 @@ async function processJob(config,job,resume) {
   }
   while(state.phase==='rendering') {
     const p=await studioSnapshot(config.studio);
+    const observed=observeJob(state,p);save(state);
     // Correlate with the job marker in the application's initial log. Never send another UI job's video.
     const ours=JSON.stringify(p.logs||[]).includes(state.marker);
     if(!ours)throw Error('Ứng dụng đang ở phiên khác; dừng để tránh gửi nhầm video');
-    if(p.step==='error')throw Error('Ứng dụng báo lỗi dựng; xem chi tiết trong KT AI Video Studio');
+    if(p.step==='error')throw Error('Ứng dụng báo lỗi dựng: '+redactError(p.error||'Xem nhật ký Studio'));
     if(p.step==='completed'&&p.outputVideo){state.source=outputPath(config.appRoot,p.outputVideo.slug);state.completed=Date.now();state.phase='ready';save(state);break;}
     if(!p.active)throw Error('Phiên dựng đã dừng trước khi hoàn tất');
-    await cloud(config,'progress',{job:job.id,body:{progress:String(p.step)+' · '+(p.progress||0)+'%'}}).catch(()=>{});
+    await cloud(config,'progress',{job:job.id,body:observed}).catch(()=>{});
     await sleep(10000);
   }
   if(state.phase==='ready'){
@@ -121,7 +125,7 @@ async function processJob(config,job,resume) {
     }
     state.phase='uploading';save(state);
     const sent=await cloud(config,'upload',{job:job.id,raw:upload});
-    state.phase='done';state.telegram=sent;save(state);
+    state.phase='done';state.telegram=sent;state.finishedAt=Date.now();save(state);event({event:'job_done',job:job.id,elapsedMs:state.finishedAt-state.startedAt});
     // Keep the full-quality original under the same article + timestamp name as Telegram.
     const renamed=path.join(path.dirname(state.original),sent.filename);
     if(renamed!==state.original&&!fs.existsSync(renamed))fs.renameSync(state.original,renamed);
@@ -129,6 +133,9 @@ async function processJob(config,job,resume) {
   }
 }
 async function main() {
+process.on('uncaughtExceptionMonitor',error=>event({event:'fatal_exception',error:redactError(error)}));
+process.on('unhandledRejection',error=>{event({event:'unhandled_rejection',error:redactError(error)});process.exit(1);});
+process.on('exit',code=>event({event:'agent_exit',code}));
   const config=JSON.parse(fs.readFileSync(CONFIG,'utf8'));
   if(!/^https:\/\/[^/]+\.workers\.dev$/.test(config.cloud)||!/^http:\/\/127\.0\.0\.1:(4000|4010)$/.test(config.studio))throw Error('Địa chỉ cấu hình không hợp lệ');
   if(process.argv.includes('--check')){const status=await cloud(config,'ping');log(JSON.stringify(status));await ensureStudio(config);const p=await studioSnapshot(config.studio);log('Studio reachable; active='+!!p.active);return;}
@@ -139,26 +146,29 @@ async function main() {
   if(fs.existsSync(lock))fs.unlinkSync(lock);
   fs.writeFileSync(lock,String(process.pid),{flag:'wx'});
   process.on('exit',()=>{try{if(Number(fs.readFileSync(lock,'utf8'))===process.pid)fs.unlinkSync(lock);}catch{}});
+  const loadedFingerprint=runtimeFingerprint();
   const heartbeatFile=path.join(RUNTIME,'agent-heartbeat.json');
-  const pulse=()=>{try{fs.writeFileSync(heartbeatFile,JSON.stringify({pid:process.pid,seen:Date.now(),version:RUNTIME_VERSION,fingerprint:runtimeFingerprint()}));}catch{}};
+  const pulse=()=>{try{fs.writeFileSync(heartbeatFile,JSON.stringify({pid:process.pid,seen:Date.now(),version:RUNTIME_VERSION,fingerprint:loadedFingerprint}));}catch{}};
   pulse();const pulseTimer=setInterval(pulse,15000);pulseTimer.unref();
   process.on('exit',()=>{try{if(JSON.parse(fs.readFileSync(heartbeatFile,'utf8')).pid===process.pid)fs.unlinkSync(heartbeatFile);}catch{}});
-  log('NewsAutoBear '+RUNTIME_VERSION+' started');
+  log('NewsAutoBear '+RUNTIME_VERSION+' started');event({event:'agent_started',pid:process.pid});
+  let heartbeatBusy=false,cloudFailed=false;const cloudPulse=async()=>{if(heartbeatBusy)return;heartbeatBusy=true;try{let j={};try{j=JSON.parse(fs.readFileSync(JOURNAL,'utf8'));}catch{}await cloud(config,'heartbeat',{body:{uptimeMs:Math.round(process.uptime()*1000),job:['done','failed'].includes(j.phase)?null:j.job?.id,phase:j.phase||'idle'}});if(cloudFailed)event({event:'cloud_reconnected'});cloudFailed=false;}catch(error){if(!cloudFailed)event({event:'cloud_disconnected',error:redactError(error)});cloudFailed=true;}finally{heartbeatBusy=false;}};await cloudPulse();const cloudTimer=setInterval(cloudPulse,30000);cloudTimer.unref();
   while(true){
     try{
+      const pending=fs.existsSync(JOURNAL)?JSON.parse(fs.readFileSync(JOURNAL,'utf8')):null;if(pending?.pendingFailure){await cloud(config,'fail',{job:pending.job.id,body:{error:pending.lastError}});pending.pendingFailure=false;save(pending);}
       await ensureStudio(config);
       const status=await cloud(config,'ping');if(!status.ownerPaired){log('Chờ ghép nối chủ bot Telegram.');await sleep(30000);continue;}
       const snapshot=await studioSnapshot(config.studio);
       const local=fs.existsSync(JOURNAL)?JSON.parse(fs.readFileSync(JOURNAL,'utf8')):null;
       if(snapshot.active&&(!local||!JSON.stringify(snapshot.logs||[]).includes(local.marker))){await sleep(15000);continue;}
       const {job,resume}=await cloud(config,'claim');
-      if(job){try{await processJob(config,job,resume);}catch{
-        const s=fs.existsSync(JOURNAL)?JSON.parse(fs.readFileSync(JOURNAL,'utf8')):null;
+      if(job){try{await processJob(config,job,resume);}catch(error){
+        const s=fs.existsSync(JOURNAL)?JSON.parse(fs.readFileSync(JOURNAL,'utf8')):null,detail=redactError(error);event({event:'job_error',job:job.id,phase:s?.phase,error:detail});
         if(s?.job.id===job.id&&s.phase==='uploading')log('Lượt gửi '+job.id+' chưa xác nhận; giữ bản trên máy.');
-        else if(s?.phase==='rendering'&&(await studioSnapshot(config.studio).catch(()=>null))?.active)log('Mất kết nối tạm thời; giữ phiên dựng '+job.id);
-        else await cloud(config,'fail',{job:job.id,body:{error:'Không hoàn tất được; kiểm tra ứng dụng và thư mục videos/telegram trên máy trước khi gửi lại.'}}).catch(()=>{});
+        else if(s?.phase==='rendering'&&await studioSnapshot(config.studio).then(p=>p.active,()=>true))log('Mất kết nối tạm thời; giữ phiên dựng '+job.id+': '+detail);
+        else {const failed=s?.job.id===job.id?s:{job,startedAt:job.started};failed.phase='failed';failed.failedAt=Date.now();failed.lastError=detail;failed.pendingFailure=true;save(failed);try{await cloud(config,'fail',{job:job.id,body:{error:detail}});failed.pendingFailure=false;save(failed);}catch(noticeError){event({event:'failure_notice_pending',job:job.id,error:redactError(noticeError)});}log('Lượt '+job.id+' lỗi: '+detail);}
       }}
-    }catch{log('Chưa kết nối được; tự thử lại sau 30 giây.');}
+    }catch(error){const detail=redactError(error);event({event:'connection_error',error:detail});log('Chưa kết nối được; thử lại sau 30 giây: '+detail);}
     await sleep(30000);
   }
 }

@@ -12,7 +12,7 @@ export function pidAlive(pid){
 }
 export function heartbeatLabel(seen,now=Date.now()){
  const age=now-Number(seen||0);
- return seen&&age>=0&&age<120000?'ĐANG KẾT NỐI (heartbeat dưới 2 phút)':'CHƯA KẾT NỐI (chưa có heartbeat mới)';
+ return seen&&age>=-5000&&age<120000?'ĐANG KẾT NỐI (heartbeat dưới 2 phút)':'CHƯA KẾT NỐI (chưa có heartbeat mới)';
 }
 
 export function agentAlive(folder){

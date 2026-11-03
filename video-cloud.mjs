@@ -38,8 +38,9 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.6.0-multi-source'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.7.0-video-health'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
+  if(route==='/render/heartbeat')return await videoHeartbeat(e,await request.json(),ctx);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
   if(route==='/render/admin')return await adminSetup(e,await request.json());
   if(route==='/render/menu')return json(await syncMenu(e));
@@ -52,6 +53,7 @@ async function videoAPI(request,e,ctx) {
     const current=await sql(e,"SELECT * FROM video_jobs WHERE status IN ('running','uploading') ORDER BY created LIMIT 1").first();
     if(current)return json({job:current,resume:true});
     const job=await sql(e,"UPDATE video_jobs SET status='running',started=? WHERE id=(SELECT id FROM video_jobs WHERE status='queued' ORDER BY created LIMIT 1) AND status='queued' RETURNING *",Date.now()).first();
+    if(job)ctx.waitUntil(videoNotice(e,'start:'+job.id,job.chat,'🎬 Bắt đầu dựng '+job.id+': '+job.title+'\nThường mất vài phút, tùy độ dài và tải máy. Bot sẽ báo nếu chậm hoặc lỗi.').catch(()=>console.error('video_start_notice_pending')));
     return json({job:job||null});
   }
   const jobId=request.headers.get('x-job-id')||'';
@@ -76,12 +78,14 @@ async function videoAPI(request,e,ctx) {
     const data=await request.json();
     await put(e,'video_agent_seen',Date.now());
     await sql(e,"UPDATE video_jobs SET progress=? WHERE id=? AND status='running'",String(data.progress||'').slice(0,200),jobId).run();
+    const elapsed=Number(data.elapsedMs)||0,stalled=Number(data.stalledMs)||0;const last=Number(await get(e,'video_progress_notice:'+jobId)||job.started||Date.now());
+    if(stalled>=600000||Date.now()-last>=300000){await put(e,'video_progress_notice:'+jobId,Date.now());await videoNotice(e,'progress:'+jobId+':'+Math.floor(Date.now()/300000),job.chat,(stalled>=600000?'⚠️ Chưa ghi nhận tiến triển mới trong '+Math.floor(stalled/60000)+' phút. App có thể đang chờ API hoặc bị kẹt; chưa tự hủy video.':'⏳ Video vẫn đang xử lý.')+'\n'+jobId+' · '+String(data.progress||'')+'\nĐã chạy khoảng '+Math.floor(elapsed/60000)+' phút.');}
     return json({ok:true});
   }
   if(route==='/render/fail') {
     const data=await request.json();
     const result=await sql(e,"UPDATE video_jobs SET status='failed',progress=?,finished=? WHERE id=? AND status='running'",String(data.error||'Lỗi dựng video').slice(0,250),Date.now(),jobId).run();
-    if(result.meta.changes)ctx.waitUntil(send(e,job.chat,'Video '+jobId+' chưa hoàn tất: '+String(data.error||'Lỗi dựng video').slice(0,250)).catch(()=>{}));
+    if(result.meta.changes||job.status==='failed')await videoNotice(e,'fail:'+jobId,job.chat,'❌ Video '+jobId+' chưa hoàn tất: '+String(data.error||'Lỗi dựng video').slice(0,250)+'\nBản có sẵn trên máy được giữ lại; kiểm tra trước khi gửi lại yêu cầu.');
     return json({ok:true});
   }
   if(route==='/render/upload') {
