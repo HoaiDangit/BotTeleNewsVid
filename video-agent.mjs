@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import {installMedia} from './install-media.mjs';
+import {installExplainer} from './install-explainer.mjs';
 import {runtimeFingerprint,RUNTIME_VERSION} from './runtime-version.mjs';
 import {licensedImages} from './licensed-images.mjs';
 import {makeThumbnail} from './user-media.mjs';
@@ -47,7 +47,7 @@ async function cloud(config,route,{body={},job,raw}={}) {
 }
 export async function ensureStudio(config) {
   try{await studioSnapshot(config.studio);return;}catch{}
-  installMedia(config.appRoot);
+  installExplainer(config.appRoot);
   const entry=path.join(config.appRoot,'scripts','ui-server.mjs');
   if(!fs.existsSync(entry))throw Error('Không thấy ứng dụng dựng video');
   const fd=fs.openSync(path.join(PRIVATE,'studio.log'),'a');

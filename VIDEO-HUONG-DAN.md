@@ -44,3 +44,11 @@ Lỗi/hết hạn mức AI không hủy yêu cầu video. Bài nháp lưu trong 
 - Nội dung tự nhập: `/video_tin Tên bài | Tên nguồn | Nội dung từ 300 ký tự`. Có link: `/video_tin URL | Tên bài | Tên nguồn | Nội dung`.
 - Tệp .txt UTF-8: tối đa 120 KB, nội dung 300–30000 ký tự, caption `/video_tin Tên bài | Tên nguồn | URL nếu có`.
 - Menu vẫn gồm 6 lệnh. Runtime source-media-v2 cần triển khai đồng bộ Cloudflare và cầu nối máy tính. Nguồn và trạng thái quyền ảnh được lưu ở manifest riêng.
+
+## Video giải thích bằng đồ họa web (03/11/2026)
+
+Video tin mới dùng thẻ nền sáng, sơ đồ thông tin xuất hiện theo thời lượng cảnh, thẻ số liệu, so sánh hai phía và biểu đồ khi bài có đủ số liệu tương thích. Ảnh bài báo tiếp tục làm minh họa. Lời đọc trình bày sự kiện, cơ chế, dữ kiện, tác động và điều chưa rõ; nhận định có điều kiện phải tách khỏi thông tin nguồn. Không tự đặt số để vẽ biểu đồ.
+
+Cài bằng `installExplainer(appRoot)` từ `install-explainer.mjs`. Installer sao lưu các tệp bị sửa dưới .bridge/studio-backups và chỉ kích hoạt chế độ mới với marker `[NewsAutoBear explain-web-v1]`; video bài tập và yêu cầu Studio thông thường giữ nhánh cũ. Cần khởi động lại riêng Studio Telegram khi không có video đang dựng, rồi khởi động cầu nối để nạp fingerprint mới. Không đổi menu hoặc dịch vụ Cloudflare.
+
+Đã bỏ giới hạn prompt chung 50–100 giây cho riêng chế độ giải thích: mục tiêu 3–4 phút khi đủ dữ kiện, không kéo dài nguồn ngắn. Bản dựng thử từ nguồn dài có 8 cảnh, 604 từ; thời lượng cuối phụ thuộc TTS.
