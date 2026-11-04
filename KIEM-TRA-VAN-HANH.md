@@ -29,3 +29,9 @@ Sửa: chạy kiem-video.mjs bằng tiến trình con bất đồng bộ, vẫn 
 - Studio báo cả hai key bị quota ở bước TTS; chưa có MP4. Không phải lỗi tải Telegram hoặc mất tiến độ.
 - Bộ báo lỗi trước đây cắt 600 ký tự đầu stderr nên phần hướng dẫn/script lấn mất lỗi cuối. Giờ ưu tiên lỗi TTS cuối, không nhầm cảnh báo quota của một key đã được fallback thành lỗi cuối cùng.
 - Thông báo quota không cam kết thời điểm reset, không bật dịch vụ trả phí; giữ trạng thái failed, không tự gọi lại. Dashboard cũng dùng cùng bản tóm tắt. Đã nạp cầu nối và đạt 58 kiểm thử.
+
+## Giới hạn thời lượng từ 04/11/2026
+- Video bot mới (tin tức, tổng hợp nhiều bài, bài tập) có marker max90-v1: mục tiêu 60–80 giây, trần 90 giây gồm nguồn/lưu ý; 4–6 cảnh, tổng 230–280 từ theo khoảng trắng, tối đa 300.
+- Cập nhật cả yêu cầu biên tập, planner riêng tin tức và lời nhắc ưu tiên ở Studio; không đổi video cũ hoặc lượt Studio không có marker.
+- Chặn kịch bản quá 300 từ trước TTS, chặn tổng frame >2700 ở 30 fps trước render; không cắt ngang lời đọc, không bỏ nguồn hoặc lưu ý an toàn để đạt giới hạn. Lượt vượt trần báo cần rút gọn; không tự gọi AI lại.
+- Đã cài vào Studio đang vận hành, nạp lại Studio/cầu nối khi rảnh; 59/59 kiểm thử đạt. Thay đổi này không khôi phục hạn mức TTS đã hết.
