@@ -35,3 +35,9 @@ Sửa: chạy kiem-video.mjs bằng tiến trình con bất đồng bộ, vẫn 
 - Cập nhật cả yêu cầu biên tập, planner riêng tin tức và lời nhắc ưu tiên ở Studio; không đổi video cũ hoặc lượt Studio không có marker.
 - Chặn kịch bản quá 300 từ trước TTS, chặn tổng frame >2700 ở 30 fps trước render; không cắt ngang lời đọc, không bỏ nguồn hoặc lưu ý an toàn để đạt giới hạn. Lượt vượt trần báo cần rút gọn; không tự gọi AI lại.
 - Đã cài vào Studio đang vận hành, nạp lại Studio/cầu nối khi rảnh; 59/59 kiểm thử đạt. Thay đổi này không khôi phục hạn mức TTS đã hết.
+
+## Phục hồi TTS bằng kế hoạch giữ lại
+- Thêm cơ chế nạp kế hoạch phục hồi riêng từ .bridge/recovery-plans cho đúng job v<ID> và mã SHA-256 của toàn bộ context; kiểm tra lời đọc và ngân sách 300 từ trước khi dùng. Chỉ kích hoạt với marker max90-v1, không nhận đường dẫn tùy ý từ người dùng.
+- Cho phép dùng lại nội dung đã biên tập khi thư mục dựng dở bị dọn, tránh gọi lại AI viết kịch bản. Tệp phục hồi, API key và .env không đưa lên GitHub.
+- v267977848: giữ hai ảnh gốc đã có; rút kế hoạch thô xuống 5 cảnh, 254 từ; tạo lại giọng và render theo trần 90 giây. Bốn key đã được Studio nhận, xác thực key thứ tư qua API danh sách model (không dùng phép thử sinh nội dung).
+- 60/60 kiểm thử đạt, gồm cách ly context, chặn kế hoạch quá dài và tính lặp an toàn của bộ cài. Việc key xác thực được không đảm bảo còn quota TTS.

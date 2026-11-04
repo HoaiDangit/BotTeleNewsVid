@@ -1,3 +1,4 @@
+import {installRetainedPlan} from './install-retained-plan.mjs';
 import {installDuration} from './install-duration.mjs';
 import {installProgressFix} from './install-progress-fix.mjs';
 import {installQuiet} from './quiet-processes.mjs';
@@ -32,6 +33,6 @@ export function installExplainer(appRoot){
  fs.copyFileSync(new URL('./NewsExplainer.tsx',import.meta.url),path.join(appRoot,'src/components/NewsExplainer.tsx'));
  fs.copyFileSync(new URL('./news-planner.mjs',import.meta.url),path.join(appRoot,'scripts/tele-news-planner.mjs'));
  for(const e of edits)if(e.before!==e.after){const b=path.join(backup,e.rel.replace(/[\\/]/g,'_')+'.before-explainer-v1');if(!fs.existsSync(b))fs.writeFileSync(b,e.before);fs.writeFileSync(e.file,e.after);}
- installDuration(appRoot);
+ installDuration(appRoot);installRetainedPlan(appRoot);
  return edits.filter(e=>e.before!==e.after).map(e=>e.rel);
 }
