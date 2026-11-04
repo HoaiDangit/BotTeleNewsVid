@@ -23,3 +23,4 @@ Sửa: chạy kiem-video.mjs bằng tiến trình con bất đồng bộ, vẫn 
 - Render thử có ghi nhận tiến trình thực tế: 10/10 lần mở tiến trình có windowsHide; 57 kiểm thử đạt.
 - v267977846 đã render đủ 158,17 giây / 16.257.356 byte; lỗi giao trước đó là bộ duyệt chặn cụm thuật ngữ trùng 18 từ, chưa đến bước gọi Telegram. Cụm ngắn trở thành cảnh báo duyệt bản nháp; đoạn trùng từ 50 từ vẫn bị chặn. Không suy diễn ngưỡng kỹ thuật thành bảo đảm pháp lý.
 - Đã kiểm tra giải mã đầy đủ MP4 và khôi phục giao từ bản có sẵn, không gọi AI/render lại. Cloud 1.7.2-native-quiet-review; Studio và cầu nối trên máy đã nạp lại.
+- Xác nhận giao v267977846: Telegram message_id=400, local/remote đều done lúc 15:20:47 ngày 04/11/2026. Có ECONNRESET và một lượt thử bộ đệm chờ quá 240 giây; lượt gửi lại sau đó thành công với bản gốc, không cần bản nén. Không khẳng định đây là lỗi Telegram API; trạng thái máy chủ được kiểm tra trước mọi lần gửi lại.
