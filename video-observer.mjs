@@ -1,6 +1,14 @@
 import fs from 'node:fs';import crypto from 'node:crypto';
 export function safeError(error){return String(error?.message||error||'Lỗi không rõ')+(error?.cause?.code?' ['+error.cause.code+']':'');}
-export function redactError(error){return safeError(error).replace(/Bearer\s+\S+/gi,'Bearer [ẩn]').replace(/bot\d+:[\w-]+/g,'bot[ẩn]').replace(/AIza[\w-]{20,}/g,'[API key ẩn]').replace(/([?&](?:key|token|api_key)=)[^&\s]+/gi,'$1[ẩn]').slice(0,600);}
+export function failureSummary(error){
+ const raw=safeError(error);
+ // Match the terminal provider failure, not a recovered quota warning from an earlier key.
+ if(/Gemini TTS failed:[^\n]*Tất cả \d+ key Gemini[^\n]*hết hạn mức/i.test(raw))return 'Không tạo được giọng đọc: tất cả key Gemini TTS đang hết hạn mức. Chưa có MP4 để gửi. Đợi hạn mức được cấp lại rồi thử lại; ứng dụng không tự bật dịch vụ trả phí.';
+ const terminal=raw.split(/\r?\n/).filter(x=>/Gemini TTS failed:|ElevenLabs TTS failed:/i.test(x)).at(-1);
+ if(terminal&&/No provider succeeded/i.test(raw))return 'Không tạo được giọng đọc; chưa có MP4 để gửi. '+terminal.trim();
+ return raw;
+}
+export function redactError(error){return failureSummary(error).replace(/Bearer\s+\S+/gi,'Bearer [ẩn]').replace(/bot\d+:[\w-]+/g,'bot[ẩn]').replace(/AIza[\w-]{20,}/g,'[API key ẩn]').replace(/([?&](?:key|token|api_key)=)[^&\s]+/gi,'$1[ẩn]').slice(0,600);}
 export function observeJob(state,snapshot,now=Date.now()){
  state.startedAt=state.startedAt||state.job.started||now;
  const signature=crypto.createHash('sha256').update(JSON.stringify([snapshot.step,snapshot.progress,(snapshot.logs||[]).slice(-3)])).digest('hex');

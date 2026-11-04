@@ -1,3 +1,4 @@
+import {redactError} from './video-observer.mjs';
 import fs from 'node:fs';
 import {runtimeFingerprint,RUNTIME_VERSION} from './runtime-version.mjs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {spawn} from 'node:child_process';import {setTimeout as sleep} from 'node:timers/promises';
 import {studioSnapshot,ensureStudio} from './video-agent.mjs';import {pidAlive,heartbeatLabel,agentAlive} from './runtime-status.mjs';
@@ -7,7 +8,7 @@ function agentRunning(){const folder=path.join(priv,'runtime-v3');return agentAl
 
 async function status(){
  let studio='CHƯA CHẠY',cloud='CHƯA KIỂM TRA',heartbeat='CHƯA KIỂM TRA';
- try{const p=await studioSnapshot(c.studio);studio=p.active?'ĐANG DỰNG VIDEO':p.step==='error'?'ĐANG MỞ — lỗi lượt dựng trước: '+String(p.error||'Xem nhật ký').slice(0,300):'SẴN SÀNG';}catch{}
+ try{const p=await studioSnapshot(c.studio);studio=p.active?'ĐANG DỰNG VIDEO':p.step==='error'?'ĐANG MỞ — lỗi lượt dựng trước: '+redactError(p.error||'Xem nhật ký').slice(0,300):'SẴN SÀNG';}catch{}
  try{const r=await fetch(c.cloud+'/render/ping',{headers:{Authorization:'Bearer '+c.token},signal:AbortSignal.timeout(8000)});if(!r.ok)throw Error();const j=await r.json();cloud=j.ownerPaired?'ĐÃ GHÉP TELEGRAM':'CHƯA GHÉP TELEGRAM';heartbeat=heartbeatLabel(j.agentSeen);}catch{cloud='KHÔNG KẾT NỐI ĐƯỢC';}
  const agent=agentRunning();let runtime='không xác định / phiên bản cũ';try{const lease=JSON.parse(fs.readFileSync(path.join(agent||priv,'agent-heartbeat.json'),'utf8'));runtime=lease.version+' · '+(lease.fingerprint===runtimeFingerprint()?'ĐÃ NẠP BẢN HIỆN TẠI':'CẦN KHỞI ĐỘNG LẠI');}catch{}
  console.log('Studio: '+studio+'\nTiến trình cầu nối: '+(agent?'ĐANG CHẠY':'CHƯA CHẠY')+'\nPhiên bản đã cài: '+RUNTIME_VERSION+'\nPhiên bản đang chạy: '+runtime+'\nCloudflare: '+cloud+'\nTelegram: '+heartbeat+'\n\n'+(agent?'Thư mục cầu nối: '+agent:'Bấm Khởi động để mở Studio và cầu nối.')+'\nCập nhật: '+new Date().toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}));
