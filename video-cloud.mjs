@@ -38,7 +38,7 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.7.0-video-health'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.7.2-native-quiet-review'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/heartbeat')return await videoHeartbeat(e,await request.json(),ctx);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
@@ -66,6 +66,14 @@ async function videoAPI(request,e,ctx) {
     const bytes=await telegramFileBytes(e,item.fileId,6000000);return new Response(bytes,{headers:{'Content-Type':item.mime,'Cache-Control':'private, no-store'}});
   }
   if(route==='/render/status')return json({job});
+  if(route==='/render/recover'){
+    if(job.status!=='failed'||job.message_id)return json({error:'Only a failed, undelivered job can be recovered'},409);
+    const data=await request.json();if(!/^[a-f0-9]{64}$/.test(data.sha256||'')||!(Number(data.duration)>0)||!(Number(data.bytes)>0&&Number(data.bytes)<=49000000))return json({error:'Validated MP4 evidence required'},400);
+    const active=await sql(e,"SELECT id FROM video_jobs WHERE status IN ('running','uploading') AND id<>? LIMIT 1",jobId).first();if(active)return json({error:'Another job is active'},409);
+    const result=await sql(e,"UPDATE video_jobs SET status='running',finished=NULL,progress='Phục hồi bản MP4 đã kiểm tra' WHERE id=? AND status='failed' AND message_id IS NULL",jobId).run();if(!result.meta.changes)return json({error:'Job changed'},409);
+    await put(e,'video_recovery:'+jobId,JSON.stringify({sha256:data.sha256,duration:Number(data.duration),bytes:Number(data.bytes),time:Date.now()}));
+    ctx.waitUntil(videoNotice(e,'recovered:'+jobId,job.chat,'✅ Đã tìm thấy bản MP4 hoàn tất của '+jobId+'. Bản MP4 đã được kiểm tra; đang khôi phục gửi video, không dựng lại.').catch(()=>{}));return json({ok:true});
+  }
   if(route==='/render/thumbnail'){
     if(job.status!=='running'||job.chat!==await get(e,'owner')&&!await get(e,'access:'+job.chat))return json({error:'Job unavailable'},409);
     const key='cover:'+job.id,previous=await get(e,key);if(previous){const saved=JSON.parse(previous);return json(saved,saved.fileId?200:409);}

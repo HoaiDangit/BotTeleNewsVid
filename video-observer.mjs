@@ -9,3 +9,10 @@ export function observeJob(state,snapshot,now=Date.now()){
  return {progress:state.stage+' · '+(snapshot.progress||0)+'%',elapsedMs:now-state.startedAt,stalledMs:now-(state.lastActivityAt||now)};
 }
 export function appendEvent(file,event){try{if(fs.existsSync(file)&&fs.statSync(file).size>5000000)fs.renameSync(file,file+'.previous');fs.appendFileSync(file,JSON.stringify({time:new Date().toISOString(),...event})+'\n');}catch{}}
+export function recoveryDecision(state,snapshot){
+ if(!snapshot)return 'wait';
+ const ours=JSON.stringify(snapshot.logs||[]).includes(state.marker);
+ if(ours&&snapshot.step==='completed'&&/^[a-zA-Z0-9_-]+$/.test(snapshot.outputVideo?.slug||''))return 'ready';
+ if(snapshot.active&&snapshot.step!=='error')return 'wait';
+ return 'failed';
+}

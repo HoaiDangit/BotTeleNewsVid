@@ -1,4 +1,4 @@
-import {observeJob,appendEvent,redactError} from './video-observer.mjs';
+import {observeJob,appendEvent,redactError,recoveryDecision} from './video-observer.mjs';
 import fs from 'node:fs';
 import {installExplainer} from './install-explainer.mjs';
 import {runtimeFingerprint,RUNTIME_VERSION} from './runtime-version.mjs';
@@ -29,8 +29,8 @@ export function outputPath(appRoot,slug) {
   if(!/^[a-zA-Z0-9_-]+$/.test(slug||''))throw Error('Slug video không hợp lệ');
   return path.join(appRoot,'videos',slug,'output','video.mp4');
 }
-export async function studioSnapshot(studio) {
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);
+export async function studioSnapshot(studio,{timeoutMs=10000}={}) {
+  const controller=new AbortController();const timer=setTimeout(()=>{const error=new Error('Chờ phản hồi tiến độ Studio quá '+Math.round(timeoutMs/1000)+' giây; chưa thể kết luận render lỗi.');error.code='STUDIO_PROGRESS_TIMEOUT';controller.abort(error);},timeoutMs);
   try {
     const r=await fetch(studio+'/api/progress',{signal:controller.signal});
     if(!r.ok)throw Error('Không đọc được tiến độ');
@@ -165,7 +165,7 @@ process.on('exit',code=>event({event:'agent_exit',code}));
       if(job){try{await processJob(config,job,resume);}catch(error){
         const s=fs.existsSync(JOURNAL)?JSON.parse(fs.readFileSync(JOURNAL,'utf8')):null,detail=redactError(error);event({event:'job_error',job:job.id,phase:s?.phase,error:detail});
         if(s?.job.id===job.id&&s.phase==='uploading')log('Lượt gửi '+job.id+' chưa xác nhận; giữ bản trên máy.');
-        else if(s?.phase==='rendering'&&await studioSnapshot(config.studio).then(p=>p.active,()=>true))log('Mất kết nối tạm thời; giữ phiên dựng '+job.id+': '+detail);
+        else if(s?.phase==='rendering'){const latest=await studioSnapshot(config.studio).catch(()=>null),decision=recoveryDecision(s,latest);if(decision==='ready'){s.source=outputPath(config.appRoot,latest.outputVideo.slug);s.completed=Date.now();s.phase='ready';save(s);event({event:'completed_after_progress_timeout',job:job.id});}else if(decision==='wait'){log('Mất kết nối tiến độ tạm thời; giữ phiên dựng '+job.id+': '+detail);}else{s.phase='failed';s.failedAt=Date.now();s.lastError=latest?.error?redactError(latest.error):detail;s.pendingFailure=true;save(s);}}
         else {const failed=s?.job.id===job.id?s:{job,startedAt:job.started};failed.phase='failed';failed.failedAt=Date.now();failed.lastError=detail;failed.pendingFailure=true;save(failed);try{await cloud(config,'fail',{job:job.id,body:{error:detail}});failed.pendingFailure=false;save(failed);}catch(noticeError){event({event:'failure_notice_pending',job:job.id,error:redactError(noticeError)});}log('Lượt '+job.id+' lỗi: '+detail);}
       }}
     }catch(error){const detail=redactError(error);event({event:'connection_error',error:detail});log('Chưa kết nối được; thử lại sau 30 giây: '+detail);}

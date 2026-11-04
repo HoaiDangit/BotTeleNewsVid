@@ -1,3 +1,4 @@
+import {copiedRun} from './review-overlap.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -34,11 +35,11 @@ export function reviewScript(job,plan,approvedImages=[]){
  const payload=JSON.parse(job.payload||'{}');const names=[...new Set((payload.sources||[]).filter(s=>s.read).map(s=>new URL(s.url).hostname))];if(!names.length)names.push(payload.sourceName||new URL(job.url).hostname);
  if(names.some(name=>!text.includes(name)))errors.push('Thiếu tên một hoặc nhiều nguồn trong lời dẫn.');
  if(/giọng đọc tổng hợp|nguồn voice|công cụ làm âm/i.test(text))errors.push('Lời đọc còn thông tin giọng/công cụ không cần thiết.');
- const source=words(job.excerpt),output=words(text);const phrases=new Set();
- for(let i=0;i+18<=source.length;i++)phrases.add(source.slice(i,i+18).join(' '));
- for(let i=0;i+18<=output.length;i++)if(phrases.has(output.slice(i,i+18).join(' '))){errors.push('Phát hiện đoạn trùng 18 từ liên tiếp; cần viết lại. Đây là ngưỡng kỹ thuật, không phải ngưỡng pháp luật.');break;}
+ const overlap=copiedRun(job.excerpt,text),warnings=[];
+ if(overlap>=50)errors.push('Kịch bản chứa đoạn trùng dài '+overlap+' từ; cần biên tập lại trước khi giao. Đây là kiểm tra kỹ thuật, không phải kết luận pháp luật.');
+ else if(overlap>=18)warnings.push('Có cụm trùng '+overlap+' từ với tư liệu, có thể gồm thuật ngữ/tên gọi cố định; cần xem lại trước khi đăng.');
  if((plan.scenes||[]).some(s=>s.video||s.imageUrl||s.videoUrl||(s.image&&!approvedImages.includes(s.image))))errors.push('Phát hiện tài sản hình ảnh/video chưa được duyệt quyền.');
- return {policy:POLICY_VERSION,status:errors.length?'blocked':'draft-needs-human-review',errors,source:job.url,sourceTitle:job.title,independentlyVerified:false,rightsCleared:false,script:text,checklist:['Đối chiếu từng dữ kiện với nguồn gốc và ngày đăng; bổ sung nguồn độc lập khi cần.','Kiểm tra cáo buộc, quyền riêng tư, thông tin trẻ em, nội dung sức khỏe/tài chính.','Kiểm tra quyền dùng font, mẫu thiết kế, giọng TTS và mọi tài sản xuất hiện thực tế.','Xem toàn bộ MP4, kiểm tra phụ đề, nguồn và tiêu đề trước khi đăng.'],notice:'Không phải kết luận pháp lý. Không tự động xuất bản; chỉ giao bản nháp riêng cho chủ bot.'};
+ return {policy:POLICY_VERSION,status:errors.length?'blocked':'draft-needs-human-review',reviewRevision:'short-overlap-warning-v2',errors,warnings,source:job.url,sourceTitle:job.title,independentlyVerified:false,rightsCleared:false,script:text,checklist:['Đối chiếu từng dữ kiện với nguồn gốc và ngày đăng; bổ sung nguồn độc lập khi cần.','Kiểm tra cáo buộc, quyền riêng tư, thông tin trẻ em, nội dung sức khỏe/tài chính.','Kiểm tra quyền dùng font, mẫu thiết kế, giọng TTS và mọi tài sản xuất hiện thực tế.','Xem toàn bộ MP4, kiểm tra phụ đề, nguồn và tiêu đề trước khi đăng.'],notice:'Không phải kết luận pháp lý. Không tự động xuất bản; chỉ giao bản nháp riêng cho chủ bot.'};
 }
 export function saveReview(appRoot,state){
  const dir=path.dirname(path.dirname(state.source));
@@ -50,7 +51,7 @@ export function saveReview(appRoot,state){
  const dest=path.join(appRoot,'videos','telegram',state.job.id);fs.mkdirSync(dest,{recursive:true});
  fs.writeFileSync(path.join(dest,'IMAGE-CREDITS.txt'),(state.media?.assets||[]).map(a=>[a.title||'Ảnh được cho phép',a.author,a.sourcePage,a.license,a.licenseUrl||a.permissionEvidence,a.changes,a.provenanceNote,a.purpose].filter(Boolean).join(' | ')).join('\n'));
  fs.writeFileSync(path.join(dest,'editorial-review.json'),JSON.stringify(report,null,2));
- fs.writeFileSync(path.join(dest,'CAN-DUYET-TRUOC-KHI-DANG.txt'),[report.notice,'Nguồn: '+report.source,...report.errors,...report.checklist,'\nKỊCH BẢN:\n'+report.script].join('\n'));
- if(report.errors.length)throw Error('Chặn giao video: '+report.errors.join(' '));
+ fs.writeFileSync(path.join(dest,'CAN-DUYET-TRUOC-KHI-DANG.txt'),[report.notice,'Nguồn: '+report.source,...report.errors,...(report.warnings||[]),...report.checklist,'\nKỊCH BẢN:\n'+report.script].join('\n'));
+ if(report.errors.length)throw Error('Video đã render xong, cần duyệt trước khi giao: '+report.errors.join(' '));
  return report;
 }

@@ -37,6 +37,10 @@ test('queue isolates owner, claims once, sends to stored chat, names by source a
     await message(6,123,'/video_tin https://vietnamnet.vn/new-article.html Nội dung bổ sung một');
     await message(7,123,'/video_tin https://vietnamnet.vn/new-article.html Nội dung bổ sung hai');
     const custom=await env.DB.prepare("SELECT payload,excerpt FROM video_jobs WHERE id='v7'").first();assert.ok(custom);assert.ok(custom.excerpt.includes('Nội dung bổ sung hai'));assert.equal(JSON.parse(custom.payload).sources.length,1);
+    await env.DB.prepare("UPDATE video_jobs SET status='failed' WHERE id='v4'").run();
+    assert.equal((await api('recover',{headers:{'x-job-id':'v4'},body:'{}'})).status,400);
+    assert.equal((await api('recover',{headers:{'x-job-id':'v4'},body:JSON.stringify({sha256:'a'.repeat(64),duration:30,bytes:1000})})).status,200);
+    assert.equal((await api('recover',{headers:{'x-job-id':'v4'},body:JSON.stringify({sha256:'a'.repeat(64),duration:30,bytes:1000})})).status,409);
     await message(5,123,'/video https://127.0.0.1/private');assert.equal(await env.DB.prepare("SELECT * FROM video_jobs WHERE id='v5'").first(),null);
   }finally{globalThis.fetch=actual;}
 });

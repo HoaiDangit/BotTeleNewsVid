@@ -1,3 +1,4 @@
+import {installRemotionQuiet} from './quiet-remotion.mjs';
 import fs from 'node:fs';import path from 'node:path';
 const rules={
  'scripts/ui-server.mjs':[['{ cwd, shell: false, env:','{ windowsHide: true, cwd, shell: false, env:'],['{ cwd: ROOT, shell: false, env:','{ windowsHide: true, cwd: ROOT, shell: false, env:'],["{ shell: false, stdio: 'ignore', detached: true }","{ windowsHide: true, shell: false, stdio: 'ignore', detached: true }"],["{ stdio: 'ignore' }","{ windowsHide: true, stdio: 'ignore' }"],['{maxBuffer:','{windowsHide: true, maxBuffer:'],["'-q:v', '4', nho]);","'-q:v', '4', nho], {windowsHide: true});"]],
@@ -15,6 +16,7 @@ export function quietSource(source,rel){
 }
 export function installQuiet(appRoot){
  const edits=Object.keys(rules).map(rel=>{const file=path.join(appRoot,rel),before=fs.readFileSync(file,'utf8');return {rel,file,before,after:quietSource(before,rel)};});
+ installRemotionQuiet(appRoot);
  const backup=path.join(appRoot,'teleSetup','.bridge','studio-backups');fs.mkdirSync(backup,{recursive:true});
  for(const e of edits)if(e.before!==e.after){const file=path.join(backup,e.rel.replace(/[\\/]/g,'_')+'.before-quiet-v2');if(!fs.existsSync(file))fs.writeFileSync(file,e.before);fs.writeFileSync(e.file,e.after);}return edits.filter(e=>e.before!==e.after).map(e=>e.rel);
 }

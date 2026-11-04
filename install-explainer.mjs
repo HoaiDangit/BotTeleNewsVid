@@ -1,3 +1,4 @@
+import {installProgressFix} from './install-progress-fix.mjs';
 import {installQuiet} from './quiet-processes.mjs';
 import fs from 'node:fs';import path from 'node:path';import {installMedia} from './install-media.mjs';
 export function explainerServer(source){
@@ -23,7 +24,7 @@ export function explainerScene(source){
  return "import {NewsExplainer} from './NewsExplainer';\n"+source.replace(anchor,"  // TELESETUP_EXPLAINER_V1\n  if(scene.image?.includes('/images/tele-explainer-')) return <NewsExplainer scene={scene} idx={idx}/>;\n"+anchor);
 }
 export function installExplainer(appRoot){
- installMedia(appRoot);installQuiet(appRoot);
+ installMedia(appRoot);installQuiet(appRoot);installProgressFix(appRoot);
  const targets=[['scripts/ui-server.mjs',explainerServer],['src/components/FreeStyleScene.tsx',explainerScene]];
  const edits=targets.map(([rel,patch])=>{const file=path.join(appRoot,rel),before=fs.readFileSync(file,'utf8');return {rel,file,before,after:patch(before)};});
  const backup=path.join(appRoot,'teleSetup','.bridge','studio-backups');fs.mkdirSync(backup,{recursive:true});
