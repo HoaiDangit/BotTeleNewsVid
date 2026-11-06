@@ -49,3 +49,9 @@ Sửa: chạy kiem-video.mjs bằng tiến trình con bất đồng bộ, vẫn 
 - Marker mới max60-v1 và trạng thái durationLimitSeconds=59 gắn cho lượt bot mới. Kiểm tra frame <=1770 ở 30 fps trước render; đọc thời lượng MP4 bằng FFmpeg trước gửi, chặn >=60 giây hoặc lệch trần 59 giây quá dung sai container 0,05 giây. Không chỉ ước lượng từ số từ.
 - Bộ cài nâng cấp được hook max90-v1 cũ, nạp cùng module chính sách vào scripts/tele-duration-policy.mjs; planner đã dùng đúng import bản cài.
 - Đã cài và nạp lại Studio/cầu nối trên máy lúc rảnh. 62/62 kiểm thử đạt: biên frame/thời lượng, cùng quy định ở các prompt, chỉ một lượt rút gọn, không gọi thêm khi kịch bản đã vừa giới hạn. Không gọi TTS/render trả phí hoặc tạo video thử trong lần sửa cấu hình này.
+
+
+## 06/11/2026 — gỡ kế hoạch sport/bài tập
+- Bỏ workout khỏi bundle Worker; tắt lịch 20:00, /baitap và /video_tap không tạo yêu cầu. Menu còn 4 lệnh myid, tin, video_tin, check_status; bản tin 5 tin lúc 07:00 giữ nguyên.
+- Cầu nối hủy job workout đang queued trước khi lấy việc; giữ lịch sử, ảnh/video và các job đang chạy. Không xóa dữ liệu Google Drive hay thư mục ứng dụng.
+- Cloudflare 1.8.0-news-only đã hoạt động; Telegram API xác nhận menu mặc định và chủ bot có đúng 4 lệnh. 62/62 kiểm thử đạt, gồm không gửi bản tối, lệnh cũ không xếp hàng, queued workout được hủy, video tin vẫn hoạt động.

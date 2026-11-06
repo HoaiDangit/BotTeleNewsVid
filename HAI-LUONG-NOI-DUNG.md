@@ -1,3 +1,5 @@
+> Cập nhật 06/11/2026: luồng sport/bài tập đã gỡ. Menu hiện tại: /myid, /tin, /video_tin, /check_status. Chỉ gửi 5 tin lúc 07:00; không gửi bài tập lúc 20:00. Nội dung dưới đây được giữ làm lịch sử.
+
 # Hai luồng nội dung
 
 Giờ Việt Nam: 07:00 gửi tối đa 5 tin nổi bật mới trong 24 giờ; 20:00 gửi 5 bài tập tham khảo riêng. Chỉ chủ bot nhận bản tự động, thành viên trong danh sách được phép dùng lệnh để xem và tạo video. Thiếu tin mới thì báo thiếu, không thêm tin cũ cho đủ. Nguồn RSS và xếp hạng ảnh hưởng xã hội giữ nguyên.

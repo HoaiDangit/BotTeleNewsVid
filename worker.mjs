@@ -15,7 +15,7 @@ export const FEEDS = [
   ['BBC','world','https://feeds.bbci.co.uk/news/world/rss.xml']
 ];
 const LABEL = {tech:'Công nghệ/AI',business:'Kinh doanh thế giới',economy:'Kinh tế',music:'Âm nhạc',society:'Xã hội',travel:'Du lịch',environment:'Môi trường',culture:'Văn hóa',world:'Quốc tế'};
-const HELP = "NewsAutoBear — 2 luồng riêng: 07:00 gửi 5 tin nổi bật; 20:00 gửi 5 bài tập tham khảo (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 5 tin mới trong 24 giờ\n/baitap — 5 bài tập hôm nay\n/video_tin <nội dung và 1–5 link bất kỳ> — tự tách link, đọc các bài và kết hợp toàn bộ nội dung gửi kèm thành một video. Gửi kèm ảnh/screenshot hoặc trả lời ảnh bằng lệnh để dùng làm thumb và minh họa.\n/video_tin Tên bài | Tên nguồn | Nội dung — tự cung cấp nội dung (ít nhất 300 ký tự); cũng nhận tệp .txt UTF-8 với caption /video_tin Tên bài | Tên nguồn.\n/video_tap 1–5 — video từ bài tập hôm nay\n/video_tap Tên bài | Mô tả động tác | Mức tập (nếu có) | Link nguồn (nếu có) — video bài bạn cung cấp\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. Bài tập hỗ trợ vận động, không bảo đảm giảm cân. /start hoặc /help để xem lại hướng dẫn.";
+const HELP = "NewsAutoBear — tin tức và video tổng hợp. 07:00 gửi 5 tin nổi bật mỗi ngày (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 5 tin mới trong 24 giờ\n/video_tin <nội dung và 1–5 link> — tổng hợp bài báo và nội dung gửi kèm thành video dưới 60 giây. Có thể gửi ảnh/screenshot làm thumb và minh họa hoặc tệp .txt UTF-8.\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. /help xem lại hướng dẫn.";
 export const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const xmlText = s => String(s||'').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/<[^>]*>/g,' ').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{const v=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return v>0&&v<=0x10ffff?String.fromCodePoint(v):'';}).replace(/&(amp|lt|gt|quot|apos|nbsp);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '})[n]).replace(/\s+/g,' ').trim();
 const tag = (s,n) => (s.match(new RegExp('<'+n+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+n+'>','i'))||[])[1]||'';
@@ -112,7 +112,7 @@ function card(a,i){return (i+1)+'. ['+(LABEL[a.category]||a.category)+'] '+a.tit
 function pages(rows,heading){const out=[];let text=heading+'\nTóm tắt từ RSS; cần đọc bài gốc trước khi xuất bản.\n';rows.forEach((a,i)=>{const c='\n'+card(a,i)+'\n';if(text.length+c.length>3800){out.push(text);text=heading+' (tiếp)\n';}text+=c;});out.push(text);return out;}
 async function query(e,term,spec,end){const [a,b]=timeRange(spec||'24h',Date.now(),end),terms=norm(term).split(' ').filter(Boolean).slice(0,8);return (await sql(e,'SELECT * FROM articles WHERE published BETWEEN ? AND ?'+terms.map(()=>" AND instr(' '||search||' ',?)>0").join('')+' ORDER BY published DESC LIMIT 400',a,b,...terms.map(t=>' '+t+' ')).all()).results;}
 async function digest(e,slot){
-  if(slot==='pm')return workoutDigest(e,true);
+  if(slot!=='am')return;
   const owner=await get(e,'owner');if(!owner||!e.TELEGRAM_BOT_TOKEN)return;
   const id=localDay(Date.now())+':'+slot;let edition=await sql(e,'SELECT * FROM editions WHERE id=?',id).first();if(edition)return;
   const now=Date.now(),rows=selectNews((await sql(e,'SELECT * FROM articles WHERE published>=? AND sent=0 ORDER BY published DESC LIMIT 400',now-24*3600000).all()).results,5,now);
@@ -137,23 +137,22 @@ async function handle(e,u){
     if(cmd==='/myid')await send(e,id,'Telegram ID của bạn: '+id+'\nVai trò: '+(id===owner?'quản trị viên':await get(e,'access:'+id)?'thành viên được phép':'chưa được cấp quyền')+'\nUsername không thay thế ID dạng số khi cấp quyền.');
     else if(['/allow','/deny','/users'].includes(cmd))await accessCommand(e,id,owner,text);
     else if(owner!==id&&!await get(e,'access:'+id))await send(e,id,'Bot dùng danh sách được phép. Gửi /myid rồi chuyển ID cho quản trị viên để xin quyền truy cập.');
-    else if(cmd==='/video_tap')await workoutVideoCommand(e,id,text,u.update_id,m);
+    else if(['/video_tap','/baitap'].includes(cmd))await send(e,id,'Tính năng sport/bài tập đã được gỡ khỏi dự án. Dùng /tin hoặc /video_tin cho tin tức.');
     else if(['/video_tin','/video','/video_status','/check_status'].includes(cmd))await videoCommand(e,id,text,u.update_id,m);
     else if(cmd==='/start'||cmd==='/help')await send(e,id,HELP);
-    else if(cmd==='/baitap')await workoutDigest(e,false,id);
     else if(cmd==='/tin'){
       const term=text.slice(4).trim(),rows=selectNews(await query(e,term,'24h'),5);
       if(!rows.length)await send(e,id,'Chưa có tin phù hợp trong 24 giờ gần nhất. Hệ thống tiếp tục cập nhật nguồn định kỳ.');
       else for(const p of pages(rows,'5 TIN NỔI BẬT · '+stamp(Date.now())))await send(e,id,p);
     }
-    else await send(e,id,'Menu đã rút gọn. Dùng /tin, /baitap, /video_tin, /video_tap, /check_status hoặc /myid. /help xem cú pháp gửi bài tập.');
+    else await send(e,id,'Menu đã rút gọn. Dùng /tin, /video_tin, /check_status hoặc /myid. /help xem hướng dẫn.');
     await sql(e,'UPDATE updates SET status=? WHERE id=?','done',u.update_id).run();
   }catch(err){await sql(e,'UPDATE updates SET status=? WHERE id=?','failed',u.update_id).run();await send(e,id,/Khoảng|Ngày|Dùng|Ví dụ/.test(err.message)?err.message:'Yêu cầu chưa xử lý được. Hãy thử lại sau; dùng /check_status để kiểm tra.').catch(()=>{});}
 }
 export default {
   async fetch(request,e,ctx){
     const url=new URL(request.url);
-    if(request.method==='GET'&&url.pathname==='/')return html('<h1>NewsAutoBear</h1><p>Dịch vụ bot tin tức Telegram.</p><p>Lịch: 5 tin lúc 07:00 và 5 bài tập lúc 20:00, giờ Việt Nam.</p><p><a href="/activate">Kích hoạt Telegram</a></p>');
+    if(request.method==='GET'&&url.pathname==='/')return html('<h1>NewsAutoBear</h1><p>Dịch vụ bot tin tức Telegram.</p><p>Lịch: 5 tin lúc 07:00 mỗi ngày, giờ Việt Nam.</p><p><a href="/activate">Kích hoạt Telegram</a></p>');
     if(request.method==='GET'&&url.pathname==='/health')return json({service:'newsautobear-bot',version:'1.1.0',database:!!e.DB,telegramConfigured:!!e.TELEGRAM_BOT_TOKEN,geminiConfigured:!!e.GEMINI_API_KEY,aiEnabled:e.AI_ENABLED==='true'});
     if(request.method==='GET'&&url.pathname==='/activate')return html('<h1>Kích hoạt bot</h1><p>Nhập lại Telegram token đã lưu trong Cloudflare Secrets để chứng minh bạn quản lý bot. Token gửi bằng HTTPS tới chính Worker này, dùng để đăng ký webhook với Telegram; không lưu trong kho tin.</p><form method="post" action="/activate"><label>Telegram token<input type="password" name="token" autocomplete="off" required></label><button>Kích hoạt và lấy liên kết ghép nối</button></form>');
     try{
@@ -178,7 +177,7 @@ export default {
   },
   async scheduled(event,e,ctx){
     await init(e);await videoHealth(e);const t=new Date(event.scheduledTime),slot=Math.floor(event.scheduledTime/180000);
-    if(t.getUTCMinutes()===0&&(t.getUTCHours()===0||t.getUTCHours()===13))await digest(e,t.getUTCHours()===0?'am':'pm');
+    if(t.getUTCMinutes()===0&&t.getUTCHours()===0)await digest(e,'am');
     await collect(e,slot);
     if(t.getUTCHours()===18&&t.getUTCMinutes()===0)await e.DB.batch([sql(e,'DELETE FROM articles WHERE published<?',Date.now()-30*86400000),sql(e,'DELETE FROM updates WHERE created<?',Date.now()-3*86400000),sql(e,'DELETE FROM editions WHERE created<?',Date.now()-30*86400000),sql(e,'DELETE FROM usage WHERE day<?',localDay(Date.now()-30*86400000))]);
   }

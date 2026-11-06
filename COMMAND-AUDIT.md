@@ -1,3 +1,5 @@
+> Cập nhật 06/11/2026: luồng sport/bài tập đã gỡ. Menu hiện tại: /myid, /tin, /video_tin, /check_status. Chỉ gửi 5 tin lúc 07:00; không gửi bài tập lúc 20:00. Nội dung dưới đây được giữ làm lịch sử.
+
 # Kiểm tra menu ngày 14/10/2026
 
 Đã đồng bộ 11 lệnh với Telegram: tin, tim, hoi, sang, toi, video, check_status, trangthai, nguon, help, start. Nút menu dùng chế độ commands. Áp dụng menu mặc định, hội thoại riêng và chủ bot, các ngôn ngữ mặc định/vi/en.

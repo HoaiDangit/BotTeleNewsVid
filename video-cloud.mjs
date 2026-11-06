@@ -38,7 +38,7 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.7.2-native-quiet-review'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.8.0-news-only'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/heartbeat')return await videoHeartbeat(e,await request.json(),ctx);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
@@ -48,6 +48,7 @@ async function videoAPI(request,e,ctx) {
   if(route==='/render/claim') {
     if(request.headers.get('x-runtime-version')!=='multi-source-v3')return json({error:'Update required: start teleSetup multi-source-v3 on the PC'},426);
     await put(e,'video_agent_seen',Date.now());
+    await sql(e,"UPDATE video_jobs SET status='cancelled',progress='Luồng sport/bài tập đã được gỡ',finished=? WHERE kind='workout' AND status='queued'",Date.now()).run();
     await sql(e,"UPDATE video_jobs SET status='uncertain',progress='Phiên gửi gián đoạn; kiểm tra Telegram trước khi gửi lại.' WHERE status='uploading' AND finished<?",Date.now()-10*60000).run();
     // A disconnected renderer keeps ownership; never automatically render twice.
     const current=await sql(e,"SELECT * FROM video_jobs WHERE status IN ('running','uploading') ORDER BY created LIMIT 1").first();
