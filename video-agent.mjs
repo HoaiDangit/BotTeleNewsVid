@@ -1,3 +1,4 @@
+import {MAX_SECONDS,checkShortMedia} from './duration-policy.mjs';
 import {observeJob,appendEvent,redactError,recoveryDecision} from './video-observer.mjs';
 import fs from 'node:fs';
 import {installExplainer} from './install-explainer.mjs';
@@ -69,12 +70,13 @@ async function prepareUpload(config,state,source) {
   const target=path.join(dir,filename(state.job.title,state.completed));
   if(!fs.existsSync(target))fs.copyFileSync(source,target);
   state.original=target;save(state);
-  if(fs.statSync(target).size<=48000000)return target;
   const require=createRequire(path.join(config.appRoot,'package.json')),ffmpeg=require('ffmpeg-static');
   const probe=await run(ffmpeg,['-hide_banner','-i',target]);
   const match=probe.diagnostic.match(/Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/);
-  if(!match)throw Error('Video lớn: không đọc được thời lượng để nén');
+  if(!match)throw Error('Không đọc được thời lượng MP4 trước khi gửi');
   const seconds=Number(match[1])*3600+Number(match[2])*60+Number(match[3]);
+  checkShortMedia(seconds,state.durationLimitSeconds);
+  if(fs.statSync(target).size<=48000000)return target;
   const kbps=Math.floor(45000000*8/seconds/1000)-96;
   if(kbps<150)throw Error('Video quá dài để gửi Telegram; bản gốc đã lưu trên máy');
   const small=target.replace(/\.mp4$/,'__telegram.mp4');
@@ -89,7 +91,7 @@ async function processJob(config,job,resume) {
     await cloud(config,'fail',{job:job.id,body:{error:'Phiên dựng trước bị gián đoạn; vui lòng gửi lại /video sau khi kiểm tra ứng dụng.'}});return;
   }
   if(!resume){state={job,startedAt:Date.now(),phase:'starting',marker:'[NewsAutoBear '+job.id+']'};save(state);
-    state.editorialPolicy=POLICY_VERSION;save(state);
+    state.editorialPolicy=POLICY_VERSION;state.durationLimitSeconds=MAX_SECONDS;save(state);
     state.media=await licensedImages(config,job);save(state);
     if(!state.media.assets.length)throw Error('Không chuẩn bị được ảnh minh họa; kiểm tra manifest thay vì dựng video chỉ chữ.');
     const r=await fetch(config.studio+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(editorialRequest(job,state.marker,state.media)),signal:AbortSignal.timeout(30000)});

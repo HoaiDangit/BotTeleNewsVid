@@ -31,7 +31,7 @@ export function installExplainer(appRoot){
  const edits=targets.map(([rel,patch])=>{const file=path.join(appRoot,rel),before=fs.readFileSync(file,'utf8');return {rel,file,before,after:patch(before)};});
  const backup=path.join(appRoot,'teleSetup','.bridge','studio-backups');fs.mkdirSync(backup,{recursive:true});
  fs.copyFileSync(new URL('./NewsExplainer.tsx',import.meta.url),path.join(appRoot,'src/components/NewsExplainer.tsx'));
- fs.copyFileSync(new URL('./news-planner.mjs',import.meta.url),path.join(appRoot,'scripts/tele-news-planner.mjs'));
+ fs.writeFileSync(path.join(appRoot,'scripts/tele-news-planner.mjs'),fs.readFileSync(new URL('./news-planner.mjs',import.meta.url),'utf8').replace("'./duration-policy.mjs'","'./tele-duration-policy.mjs'"));
  for(const e of edits)if(e.before!==e.after){const b=path.join(backup,e.rel.replace(/[\\/]/g,'_')+'.before-explainer-v1');if(!fs.existsSync(b))fs.writeFileSync(b,e.before);fs.writeFileSync(e.file,e.after);}
  installDuration(appRoot);installRetainedPlan(appRoot);
  return edits.filter(e=>e.before!==e.after).map(e=>e.rel);

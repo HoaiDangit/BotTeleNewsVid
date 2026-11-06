@@ -1,9 +1,10 @@
+import {SHORT_MARKER,SHORT_RULES} from './duration-policy.mjs';
 export function workoutData(job){const data=JSON.parse(job.excerpt);if(data.kind!=='workout'||!data.title||!data.steps)throw Error('Dữ liệu bài tập không hợp lệ');return data;}
 export function workoutRequest(job,marker,media){
  const w=workoutData(job),source=w.sourceType==='user'?'người dùng cung cấp, chưa được kiểm chứng chuyên môn':new URL(w.url).hostname;
  return {context:`${marker}
-[NewsAutoBear max90-v1]
-Tạo video hướng dẫn bài tập tiếng Việt mục tiêu 60–80 giây, tuyệt đối tối đa 90 giây; tổng 230–280 từ, không quá 300 từ tính theo khoảng trắng gồm cả nguồn và lưu ý an toàn. Không kéo dài bằng động tác hoặc mức tập tự bịa. Đây là nội dung tập luyện, không dùng bố cục bản tin, không mở bằng tin nóng.
+${SHORT_MARKER}
+Tạo video hướng dẫn bài tập tiếng Việt. ${SHORT_RULES} Không kéo dài bằng động tác hoặc mức tập tự bịa. Đây là nội dung tập luyện, không dùng bố cục bản tin, không mở bằng tin nóng.
 Thứ tự: tên bài và mục đích vận động; chuẩn bị; các bước thực hiện; mức tập đúng dữ liệu nếu có; lưu ý và kết thúc. Chỉ dùng dữ liệu dưới đây. Nếu thiếu dữ liệu động tác hoặc mức tập, nói rõ cần người có chuyên môn duyệt; không tự bịa.
 Nguồn: ${source}. Không tuyên bố đã được chuyên gia kiểm chứng. Không hứa hẹn giảm bao nhiêu kg, bao nhiêu calorie, giảm mỡ cục bộ hay kết quả chắc chắn. Không dùng thân hình trước/sau hoặc ngôn ngữ miệt thị ngoại hình. Không kê bài tập cá nhân cho người bệnh, phụ nữ mang thai, người chấn thương.
 Nhắc: tập trong khả năng, dừng khi đau hoặc chóng mặt; người có bệnh nền/chấn thương cần hỏi chuyên gia trước. Đây là gợi ý tham khảo, không yêu cầu người xem tập mọi bài hằng ngày.

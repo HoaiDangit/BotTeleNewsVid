@@ -42,3 +42,10 @@ Sửa: chạy kiem-video.mjs bằng tiến trình con bất đồng bộ, vẫn 
 - v267977848: giữ hai ảnh gốc đã có; rút kế hoạch thô xuống 5 cảnh, 254 từ; tạo lại giọng và render theo trần 90 giây. Bốn key đã được Studio nhận, xác thực key thứ tư qua API danh sách model (không dùng phép thử sinh nội dung).
 - 60/60 kiểm thử đạt, gồm cách ly context, chặn kế hoạch quá dài và tính lặp an toàn của bộ cài. Việc key xác thực được không đảm bảo còn quota TTS.
 - Hoàn tất v267977848 ngày 04/11/2026: tạo giọng thành công, xuất MP4 79,27 giây / 9.435.105 byte; toàn bộ phục hồi tới render mất khoảng 295 giây. Kiểm tra giải mã đủ video/audio đạt; bộ duyệt không có lỗi/cảnh báo. Telegram xác nhận message_id=414; local/remote đều done. Cầu nối và Studio sẵn sàng, nhận đủ 4 key; không đưa giá trị key lên GitHub.
+
+## 06/11/2026 — đồng bộ video bot dưới 60 giây
+- Thay quy định 90 giây bằng một SHORT_RULES dùng chung cho yêu cầu tin tức, bài tập, planner và Studio: mục tiêu 45–55 giây, trần 59 giây; 3–4 cảnh, 140–160 từ, tối đa 170 từ theo khoảng trắng gồm nguồn/lưu ý.
+- Lượt gần nhất v267977850 bị dừng bởi ngưỡng cũ: AI viết 303 từ, vượt 300. Giờ kịch bản quá dài được yêu cầu biên tập lại tối đa một lần sau normalizePlan, trước ảnh và TTS; không lặp vô hạn, không cắt ngang câu/nguồn/lưu ý an toàn. Nếu vẫn dài thì dừng trước TTS.
+- Marker mới max60-v1 và trạng thái durationLimitSeconds=59 gắn cho lượt bot mới. Kiểm tra frame <=1770 ở 30 fps trước render; đọc thời lượng MP4 bằng FFmpeg trước gửi, chặn >=60 giây hoặc lệch trần 59 giây quá dung sai container 0,05 giây. Không chỉ ước lượng từ số từ.
+- Bộ cài nâng cấp được hook max90-v1 cũ, nạp cùng module chính sách vào scripts/tele-duration-policy.mjs; planner đã dùng đúng import bản cài.
+- Đã cài và nạp lại Studio/cầu nối trên máy lúc rảnh. 62/62 kiểm thử đạt: biên frame/thời lượng, cùng quy định ở các prompt, chỉ một lượt rút gọn, không gọi thêm khi kịch bản đã vừa giới hạn. Không gọi TTS/render trả phí hoặc tạo video thử trong lần sửa cấu hình này.
