@@ -23,7 +23,7 @@ export const FEEDS = [
   ['BBC','world','https://feeds.bbci.co.uk/news/world/rss.xml']
 ];
 const LABEL = {tech:'Công nghệ/AI',business:'Kinh doanh thế giới',economy:'Kinh tế',music:'Âm nhạc',society:'Xã hội',travel:'Du lịch',environment:'Môi trường',culture:'Văn hóa',world:'Quốc tế'};
-const HELP = "NewsAutoBear — tin tức và video tổng hợp. 07:00 gửi 10 tin nổi bật mỗi ngày (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 10 tin mới trong 24 giờ\n/video_tin <nội dung và 1–5 link> — tổng hợp bài báo và nội dung gửi kèm thành video dưới 60 giây. Có thể gửi ảnh/screenshot làm thumb và minh họa hoặc tệp .txt UTF-8.\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. /help xem lại hướng dẫn.";
+const HELP = "NewsAutoBear — tin tức và video tổng hợp. 07:00 gửi 10 tin nổi bật mỗi ngày (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 10 tin mới trong 24 giờ\n/vid <nội dung và 1–5 link> — tổng hợp bài báo và nội dung gửi kèm thành video dưới 60 giây. Có thể gửi ảnh/screenshot làm thumb và minh họa hoặc tệp .txt UTF-8.\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. /help xem lại hướng dẫn.";
 export const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const xmlText = s => String(s||'').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/<[^>]*>/g,' ').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{const v=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return v>0&&v<=0x10ffff?String.fromCodePoint(v):'';}).replace(/&(amp|lt|gt|quot|apos|nbsp);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '})[n]).replace(/\s+/g,' ').trim();
 const tag = (s,n) => (s.match(new RegExp('<'+n+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+n+'>','i'))||[])[1]||'';
@@ -145,15 +145,15 @@ async function handle(e,u){
     if(cmd==='/myid')await send(e,id,'Telegram ID của bạn: '+id+'\nVai trò: '+(id===owner?'quản trị viên':await get(e,'access:'+id)?'thành viên được phép':'chưa được cấp quyền')+'\nUsername không thay thế ID dạng số khi cấp quyền.');
     else if(['/allow','/deny','/users'].includes(cmd))await accessCommand(e,id,owner,text);
     else if(owner!==id&&!await get(e,'access:'+id))await send(e,id,'Bot dùng danh sách được phép. Gửi /myid rồi chuyển ID cho quản trị viên để xin quyền truy cập.');
-    else if(['/video_tap','/baitap'].includes(cmd))await send(e,id,'Tính năng sport/bài tập đã được gỡ khỏi dự án. Dùng /tin hoặc /video_tin cho tin tức.');
-    else if(['/video_tin','/video','/video_status','/check_status'].includes(cmd))await videoCommand(e,id,text,u.update_id,m);
+    else if(['/video_tap','/baitap'].includes(cmd))await send(e,id,'Tính năng sport/bài tập đã được gỡ khỏi dự án. Dùng /tin hoặc /vid cho tin tức.');
+    else if(['/vid','/video_tin','/video','/video_status','/check_status'].includes(cmd))await videoCommand(e,id,text,u.update_id,m);
     else if(cmd==='/start'||cmd==='/help')await send(e,id,HELP);
     else if(cmd==='/tin'){
       const term=text.slice(4).trim(),rows=selectNews(await query(e,term,'24h'),DAILY_NEWS_COUNT);
       if(!rows.length)await send(e,id,'Chưa có tin phù hợp trong 24 giờ gần nhất. Hệ thống tiếp tục cập nhật nguồn định kỳ.');
       else for(const p of pages(rows,DAILY_NEWS_COUNT+' TIN NỔI BẬT · '+stamp(Date.now())))await send(e,id,p);
     }
-    else await send(e,id,'Menu đã rút gọn. Dùng /tin, /video_tin, /check_status hoặc /myid. /help xem hướng dẫn.');
+    else await send(e,id,'Menu đã rút gọn. Dùng /tin, /vid, /check_status hoặc /myid. /help xem hướng dẫn.');
     await sql(e,'UPDATE updates SET status=? WHERE id=?','done',u.update_id).run();
   }catch(err){await sql(e,'UPDATE updates SET status=? WHERE id=?','failed',u.update_id).run();await send(e,id,/Khoảng|Ngày|Dùng|Ví dụ/.test(err.message)?err.message:'Yêu cầu chưa xử lý được. Hãy thử lại sau; dùng /check_status để kiểm tra.').catch(()=>{});}
 }

@@ -38,11 +38,11 @@ Lỗi/hết hạn mức AI không hủy yêu cầu video. Bài nháp lưu trong 
 ## Cập nhật nguồn và ảnh (02/11/2026)
 
 - Video tin mục tiêu 120–180 giây nếu nguồn đủ dữ kiện; không thêm dữ kiện để kéo dài. Lời đọc chỉ nhắc nguồn báo, không đọc tên giọng/công cụ hay trạng thái bản nháp.
-- Gửi ảnh JPEG/PNG/WebP (tối đa 6 MB) với caption `/video_tin https://trang-bao/bai-viet`, hoặc trả lời ảnh bằng lệnh đó. Ảnh dùng làm minh họa và ảnh bìa video Telegram; bản JPEG bìa được lưu cạnh MP4.
+- Gửi ảnh JPEG/PNG/WebP (tối đa 6 MB) với caption `/vid https://trang-bao/bai-viet`, hoặc trả lời ảnh bằng lệnh đó. Ảnh dùng làm minh họa và ảnh bìa video Telegram; bản JPEG bìa được lưu cạnh MP4.
 - Ưu tiên ảnh bạn gửi, tiếp đến ảnh trang nguồn; khi không có ảnh sẽ thử chụp trang nguồn trong trình duyệt riêng. Giữ ảnh dự phòng nếu trang chặn hoặc không chụp được.
 - Chấp nhận trang HTTPS công khai, không còn giới hạn vào danh sách báo cố định. Không vượt đăng nhập/chặn truy cập; không phải mọi định dạng trang đều đọc được.
-- Nội dung tự nhập: `/video_tin Tên bài | Tên nguồn | Nội dung từ 300 ký tự`. Có link: `/video_tin URL | Tên bài | Tên nguồn | Nội dung`.
-- Tệp .txt UTF-8: tối đa 120 KB, nội dung 300–30000 ký tự, caption `/video_tin Tên bài | Tên nguồn | URL nếu có`.
+- Nội dung tự nhập: `/vid Tên bài | Tên nguồn | Nội dung từ 300 ký tự`. Có link: `/vid URL | Tên bài | Tên nguồn | Nội dung`.
+- Tệp .txt UTF-8: tối đa 120 KB, nội dung 300–30000 ký tự, caption `/vid Tên bài | Tên nguồn | URL nếu có`.
 - Menu vẫn gồm 6 lệnh. Runtime source-media-v2 cần triển khai đồng bộ Cloudflare và cầu nối máy tính. Nguồn và trạng thái quyền ảnh được lưu ở manifest riêng.
 
 ## Video giải thích bằng đồ họa web (03/11/2026)
@@ -56,10 +56,10 @@ Cài bằng `installExplainer(appRoot)` từ `install-explainer.mjs`. Installer 
 ## Chạy ẩn và nhập tự do nhiều nguồn (03/11/2026)
 
 - Cài `installQuiet(appRoot)` hoặc `installExplainer(appRoot)` để bổ sung windowsHide vào các tiến trình Node/FFmpeg của UI, TTS, thử giọng, video bài báo, ghi demo và kiểm tra nguồn. Các bản gốc được sao lưu dưới .bridge/studio-backups. Cần khởi động lại Studio đang mở khi rảnh để nạp mã mới.
-- Sau /video_tin, viết tự do và đặt link ở bất kỳ đâu. Toàn bộ nội dung tin nhắn/caption/tệp .txt được lưu trong payload.userText và đưa vào tư liệu kịch bản, không coi phần sau link chỉ là tên nguồn. Bot tự tách tối đa 5 link HTTPS công khai, bỏ link trùng và nhận link ẩn của Telegram.
+- Sau /vid, viết tự do và đặt link ở bất kỳ đâu. Toàn bộ nội dung tin nhắn/caption/tệp .txt được lưu trong payload.userText và đưa vào tư liệu kịch bản, không coi phần sau link chỉ là tên nguồn. Bot tự tách tối đa 5 link HTTPS công khai, bỏ link trùng và nhận link ẩn của Telegram.
 - Gửi tối đa 30000 ký tự tư liệu; tệp .txt UTF-8 tối đa 120 KB. Nếu vượt giới hạn bot báo lỗi thay vì âm thầm bỏ nội dung. Nội dung bài đọc từ web được phân bổ dung lượng hợp lý và ghi rõ nếu chỉ lấy trích đoạn.
 - Nhiều bài cùng sự kiện: gộp dữ kiện, đối chiếu thời điểm, ghi nhận bất đồng. Bài khác chủ đề: chia mục trong một video tổng hợp. Không tự xem nhiều bài là nguồn độc lập. Link không đọc được được ghi rõ, chỉ dùng các nguồn đã đọc và tư liệu người gửi.
-- Ví dụ: `/video_tin Bổ sung bối cảnh về AI tại Việt Nam. https://bao-a.vn/bai-1 https://bao-b.vn/bai-2 So sánh các dữ kiện và chỉ rõ điểm chưa thống nhất.`
+- Ví dụ: `/vid Bổ sung bối cảnh về AI tại Việt Nam. https://bao-a.vn/bai-1 https://bao-b.vn/bai-2 So sánh các dữ kiện và chỉ rõ điểm chưa thống nhất.`
 - Runtime multi-source-v3 cần triển khai đồng bộ Worker và cầu nối máy tính; menu vẫn 6 lệnh. Không tự tìm thêm bài liên quan ngoài các link được gửi.
 
 ## Sửa cửa sổ bật lên sau xuất video — quiet v2

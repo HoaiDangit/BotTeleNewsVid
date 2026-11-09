@@ -16,9 +16,9 @@ async function videoCommand(e,id,text,updateId,message={}) {
     const last=Number(await get(e,'video_agent_seen')||0);
     await send(e,id,'Máy dựng: '+(Date.now()-last<120000?'đang kết nối':'chưa kết nối hoặc đang tắt')+'\n'+(rows.map(r=>(r.kind==='workout'?'[BÀI TẬP] ':'[TIN TỨC] ')+r.id+' · '+r.status+' · '+r.title+'\n'+(r.progress||'')).join('\n\n')||'Chưa có yêu cầu video.'));return;
   }
-  const raw=text.replace(/^\/video(?:_tin)?(?:@\w+)?\s*/, '').trim();
-  if(!raw&&!(message.document&&(message.document.mime_type==='text/plain'||/\.txt$/i.test(message.document.file_name||'')))) {await send(e,id,'Gửi /video_tin <link bài báo>; có thể đính kèm ảnh làm thumb/minh họa. Hoặc /video_tin Tên bài | Tên nguồn | Nội dung tự cung cấp (ít nhất 300 ký tự). Tệp .txt: caption /video_tin Tên bài | Tên nguồn | Link (nếu có). /check_status xem tiến độ.');return;}
-  let article,payload;try{({article,payload}=await newsInput(e,raw,message));}catch(err){await send(e,id,String(err.message)+'\nNếu trang chặn hoặc thiếu nội dung, gửi /video_tin Tên bài | Tên nguồn | Nội dung hoặc tệp .txt UTF-8.');return;}
+  const raw=text.replace(/^\/(?:vid|video(?:_tin)?)(?:@\w+)?(?:\s+|$)/, '').trim();
+  if(!raw&&!(message.document&&(message.document.mime_type==='text/plain'||/\.txt$/i.test(message.document.file_name||'')))) {await send(e,id,'Gửi /vid <link bài báo>; có thể đính kèm ảnh làm thumb/minh họa. Hoặc /vid Tên bài | Tên nguồn | Nội dung tự cung cấp (ít nhất 300 ký tự). Tệp .txt: caption /vid Tên bài | Tên nguồn | Link (nếu có). /check_status xem tiến độ.');return;}
+  let article,payload;try{({article,payload}=await newsInput(e,raw,message));}catch(err){await send(e,id,String(err.message)+'\nNếu trang chặn hoặc thiếu nội dung, gửi /vid Tên bài | Tên nguồn | Nội dung hoặc tệp .txt UTF-8.');return;}
   const url=article.url;
   const pending=await sql(e,"SELECT COUNT(*) n FROM video_jobs WHERE status IN ('queued','running','uploading')").first();
   if(pending.n>=10){await send(e,id,'Đã có 10 video đang chờ/xử lý. Vui lòng đợi rồi gửi tiếp.');return;}
@@ -38,7 +38,7 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.8.1-ten-news-sources'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.8.2-short-vid'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/heartbeat')return await videoHeartbeat(e,await request.json(),ctx);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}

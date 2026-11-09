@@ -63,3 +63,9 @@ Sửa: chạy kiem-video.mjs bằng tiến trình con bất đồng bộ, vẫn 
 - Loại kênh công nghệ VietNamNet cũ vì chỉ có tin tháng 05/2025; dùng kênh tổng hợp hiện hành và phân loại AI/công nghệ theo nội dung. Tổng 20 RSS, quét 3 RSS mỗi 3 phút (~21 phút/vòng). Cho phép feed tới 2 MB vì RSS tổng hợp VietNamNet hơn 1 MB.
 - Bản tin tự động và /tin dùng cùng DAILY_NEWS_COUNT=10; kho ứng viên đọc tối đa 1500 bài. Giữ ưu tiên ảnh hưởng xã hội, công nghệ/AI, Việt Nam và lọc trùng; không khẳng định dựa trên lượt xem. Thiếu tin phù hợp thì báo thiếu. Bản cũ đã gửi không gửi trùng sau cập nhật.
 - Đồng bộ menu Telegram: lệnh tin mô tả 10 tin. 63/63 kiểm thử đạt, bao gồm bản tin mô phỏng có đúng 10 URL, 4 nguồn yêu cầu và refresh RSS giới hạn theo nhóm. Không gửi bản tin thủ công trong lần triển khai; lịch kế tiếp 07:00 ngày 10/11/2026.
+
+
+## 09/11/2026 — rút lệnh tạo video thành /vid
+- Menu và hướng dẫn dùng /vid thay /video_tin; router và bộ tách lệnh nhận /vid, /vid@ten_bot, caption ảnh/TXT và tin nhắn thường. Bí danh cũ giữ tương thích nhưng không hiện trong menu.
+- Cloudflare 1.8.2-short-vid đã hoạt động; API Telegram xác nhận menu mặc định/chủ bot có myid, tin, vid, check_status. Giữ nguyên 10 tin lúc 07:00 và video dưới 60 giây.
+- 63/63 kiểm thử đạt; bao gồm lệnh ngắn, @mention, bí danh cũ, nội dung kèm link và ảnh. Không tạo video thử hoặc gửi bài tin nhắn giả tới người dùng trong lần sửa lệnh.
