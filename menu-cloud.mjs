@@ -1,6 +1,6 @@
 const BOT_COMMANDS=[
   {command:'myid',description:'Xác nhận Telegram ID và quyền truy cập'},
-  {command:'tin',description:'5 tin nổi bật mới nhất; có thể thêm từ khóa'},
+  {command:'tin',description:'10 tin nổi bật mới nhất; có thể thêm từ khóa'},
   {command:'video_tin',description:'Tổng hợp link bài báo và nội dung thành video'},
   {command:'check_status',description:'Kiểm tra máy dựng và tiến độ video'},
 ];

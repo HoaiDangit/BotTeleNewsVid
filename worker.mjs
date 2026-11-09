@@ -1,6 +1,14 @@
 // NewsAutoBear: private Telegram RSS assistant. No paid API fallback.
+export const DAILY_NEWS_COUNT = 10;
 export const FEEDS = [
-  ['VietnamNet','tech','https://vietnamnet.vn/rss/cong-nghe.rss'],
+  ["Nhân Dân","society","https://nhandan.vn/rss/home.rss"],
+  ["Nhân Dân","economy","https://nhandan.vn/rss/kinhte-1185.rss"],
+  ["Nhân Dân","culture","https://nhandan.vn/rss/vanhoa-1251.rss"],
+  ["Báo Điện tử Chính phủ","society","https://baochinhphu.vn/home.rss"],
+  ["VietnamNet","society","https://vietnamnet.vn/home.rss"],
+  ["CafeF","economy","https://cafef.vn/vi-mo-dau-tu.rss"],
+  ["CafeF","business","https://cafef.vn/tai-chinh-quoc-te.rss"],
+  ["CafeF","tech","https://cafef.vn/kinh-te-so.rss"],
   ['Dân Trí','tech','https://dantri.com.vn/rss/suc-manh-so.rss'],
   ['VnExpress','tech','https://vnexpress.net/rss/khoa-hoc-cong-nghe.rss'],
   ['BBC','tech','https://feeds.bbci.co.uk/news/technology/rss.xml'],
@@ -15,7 +23,7 @@ export const FEEDS = [
   ['BBC','world','https://feeds.bbci.co.uk/news/world/rss.xml']
 ];
 const LABEL = {tech:'Công nghệ/AI',business:'Kinh doanh thế giới',economy:'Kinh tế',music:'Âm nhạc',society:'Xã hội',travel:'Du lịch',environment:'Môi trường',culture:'Văn hóa',world:'Quốc tế'};
-const HELP = "NewsAutoBear — tin tức và video tổng hợp. 07:00 gửi 5 tin nổi bật mỗi ngày (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 5 tin mới trong 24 giờ\n/video_tin <nội dung và 1–5 link> — tổng hợp bài báo và nội dung gửi kèm thành video dưới 60 giây. Có thể gửi ảnh/screenshot làm thumb và minh họa hoặc tệp .txt UTF-8.\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. /help xem lại hướng dẫn.";
+const HELP = "NewsAutoBear — tin tức và video tổng hợp. 07:00 gửi 10 tin nổi bật mỗi ngày (giờ Việt Nam).\n/myid — ID và vai trò\n/tin [từ khóa] — 10 tin mới trong 24 giờ\n/video_tin <nội dung và 1–5 link> — tổng hợp bài báo và nội dung gửi kèm thành video dưới 60 giây. Có thể gửi ảnh/screenshot làm thumb và minh họa hoặc tệp .txt UTF-8.\n/check_status — máy dựng và tiến độ\nVideo là bản nháp riêng cần duyệt trước khi đăng. /help xem lại hướng dẫn.";
 export const norm = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const xmlText = s => String(s||'').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/<[^>]*>/g,' ').replace(/&#(x[0-9a-f]+|\d+);/gi,(_,n)=>{const v=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return v>0&&v<=0x10ffff?String.fromCodePoint(v):'';}).replace(/&(amp|lt|gt|quot|apos|nbsp);/g,(_,n)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '})[n]).replace(/\s+/g,' ').trim();
 const tag = (s,n) => (s.match(new RegExp('<'+n+'(?:\\s[^>]*)?>([\\s\\S]*?)<\\/'+n+'>','i'))||[])[1]||'';
@@ -93,7 +101,7 @@ export function selectNews(rows,n=10,now=Date.now()){
 async function collect(e,slot){
   const start=(slot%Math.ceil(FEEDS.length/3))*3,now=Date.now();
   await Promise.allSettled(FEEDS.slice(start,start+3).map(async feed=>{
-    try{const r=await fetch(feed[2],{signal:AbortSignal.timeout(9000),headers:{'User-Agent':'NewsAutoBear/1.0 (personal RSS reader)'}});if(!r.ok)throw Error('HTTP '+r.status);const body=await r.text();if(body.length>700000)throw Error('Feed too large');const rows=parseFeed(body,feed,now);if(!rows.length)throw Error('No recent items');await e.DB.batch(rows.map(a=>sql(e,'INSERT INTO articles(url,title,summary,search,source,category,published,collected,video) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(url) DO UPDATE SET title=excluded.title,summary=excluded.summary,search=excluded.search,collected=excluded.collected,video=excluded.video',a.url,a.title,a.summary,a.search,a.source,a.category,a.published,a.collected,a.video)));await put(e,'feed:'+feed[2],JSON.stringify({ok:true,time:now,count:rows.length}));}
+    try{const r=await fetch(feed[2],{signal:AbortSignal.timeout(9000),headers:{'User-Agent':'NewsAutoBear/1.0 (personal RSS reader)'}});if(!r.ok)throw Error('HTTP '+r.status);const body=await r.text();if(body.length>2000000)throw Error('Feed too large');const rows=parseFeed(body,feed,now);if(!rows.length)throw Error('No recent items');await e.DB.batch(rows.map(a=>sql(e,'INSERT INTO articles(url,title,summary,search,source,category,published,collected,video) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(url) DO UPDATE SET title=excluded.title,summary=excluded.summary,search=excluded.search,collected=excluded.collected,video=excluded.video',a.url,a.title,a.summary,a.search,a.source,a.category,a.published,a.collected,a.video)));await put(e,'feed:'+feed[2],JSON.stringify({ok:true,time:now,count:rows.length}));}
     catch{await put(e,'feed:'+feed[2],JSON.stringify({ok:false,time:now}));}
   }));
   await put(e,'last_collect',now);
@@ -110,13 +118,13 @@ async function gemini(e,prompt){
 }
 function card(a,i){return (i+1)+'. ['+(LABEL[a.category]||a.category)+'] '+a.title+'\n'+(a.ai?'AI từ RSS: ':'')+(newsSignals(a).reasons.length?'Góc khai thác: '+newsSignals(a).reasons.join(' · ')+'\n':'')+(a.summary||'Nguồn chưa cung cấp mô tả.').slice(0,180)+'\n'+a.source+' · '+stamp(a.published)+'\n'+a.url+(a.video?'\nVideo: '+a.video:'');}
 function pages(rows,heading){const out=[];let text=heading+'\nTóm tắt từ RSS; cần đọc bài gốc trước khi xuất bản.\n';rows.forEach((a,i)=>{const c='\n'+card(a,i)+'\n';if(text.length+c.length>3800){out.push(text);text=heading+' (tiếp)\n';}text+=c;});out.push(text);return out;}
-async function query(e,term,spec,end){const [a,b]=timeRange(spec||'24h',Date.now(),end),terms=norm(term).split(' ').filter(Boolean).slice(0,8);return (await sql(e,'SELECT * FROM articles WHERE published BETWEEN ? AND ?'+terms.map(()=>" AND instr(' '||search||' ',?)>0").join('')+' ORDER BY published DESC LIMIT 400',a,b,...terms.map(t=>' '+t+' ')).all()).results;}
+async function query(e,term,spec,end){const [a,b]=timeRange(spec||'24h',Date.now(),end),terms=norm(term).split(' ').filter(Boolean).slice(0,8);return (await sql(e,'SELECT * FROM articles WHERE published BETWEEN ? AND ?'+terms.map(()=>" AND instr(' '||search||' ',?)>0").join('')+' ORDER BY published DESC LIMIT 1500',a,b,...terms.map(t=>' '+t+' ')).all()).results;}
 async function digest(e,slot){
   if(slot!=='am')return;
   const owner=await get(e,'owner');if(!owner||!e.TELEGRAM_BOT_TOKEN)return;
   const id=localDay(Date.now())+':'+slot;let edition=await sql(e,'SELECT * FROM editions WHERE id=?',id).first();if(edition)return;
-  const now=Date.now(),rows=selectNews((await sql(e,'SELECT * FROM articles WHERE published>=? AND sent=0 ORDER BY published DESC LIMIT 400',now-24*3600000).all()).results,5,now);
-  const title='BẢN TIN '+(slot==='am'?'07:00':'20:00')+' · '+localDay(now)+(rows.length<5?'\nChỉ có '+rows.length+' tin mới phù hợp; không thêm tin cũ để đủ số.':'');
+  const now=Date.now(),rows=selectNews((await sql(e,'SELECT * FROM articles WHERE published>=? AND sent=0 ORDER BY published DESC LIMIT 1500',now-24*3600000).all()).results,DAILY_NEWS_COUNT,now);
+  const title='BẢN TIN '+(slot==='am'?'07:00':'20:00')+' · '+localDay(now)+(rows.length<DAILY_NEWS_COUNT?'\nChỉ có '+rows.length+' tin mới phù hợp; không thêm tin cũ để đủ số.':'');
   let parts=rows.length?pages(rows,title):[title+'\nChưa có tin mới trong kho.'];
   const claim=await sql(e,'INSERT OR IGNORE INTO editions(id,created,status,parts,urls) VALUES(?,?,?,?,?)',id,now,'sending',JSON.stringify(parts),JSON.stringify(rows.map(r=>r.url))).run();if(!claim.meta.changes)return;
   try {
@@ -141,9 +149,9 @@ async function handle(e,u){
     else if(['/video_tin','/video','/video_status','/check_status'].includes(cmd))await videoCommand(e,id,text,u.update_id,m);
     else if(cmd==='/start'||cmd==='/help')await send(e,id,HELP);
     else if(cmd==='/tin'){
-      const term=text.slice(4).trim(),rows=selectNews(await query(e,term,'24h'),5);
+      const term=text.slice(4).trim(),rows=selectNews(await query(e,term,'24h'),DAILY_NEWS_COUNT);
       if(!rows.length)await send(e,id,'Chưa có tin phù hợp trong 24 giờ gần nhất. Hệ thống tiếp tục cập nhật nguồn định kỳ.');
-      else for(const p of pages(rows,'5 TIN NỔI BẬT · '+stamp(Date.now())))await send(e,id,p);
+      else for(const p of pages(rows,DAILY_NEWS_COUNT+' TIN NỔI BẬT · '+stamp(Date.now())))await send(e,id,p);
     }
     else await send(e,id,'Menu đã rút gọn. Dùng /tin, /video_tin, /check_status hoặc /myid. /help xem hướng dẫn.');
     await sql(e,'UPDATE updates SET status=? WHERE id=?','done',u.update_id).run();
@@ -152,7 +160,7 @@ async function handle(e,u){
 export default {
   async fetch(request,e,ctx){
     const url=new URL(request.url);
-    if(request.method==='GET'&&url.pathname==='/')return html('<h1>NewsAutoBear</h1><p>Dịch vụ bot tin tức Telegram.</p><p>Lịch: 5 tin lúc 07:00 mỗi ngày, giờ Việt Nam.</p><p><a href="/activate">Kích hoạt Telegram</a></p>');
+    if(request.method==='GET'&&url.pathname==='/')return html('<h1>NewsAutoBear</h1><p>Dịch vụ bot tin tức Telegram.</p><p>Lịch: 10 tin lúc 07:00 mỗi ngày, giờ Việt Nam.</p><p><a href="/activate">Kích hoạt Telegram</a></p>');
     if(request.method==='GET'&&url.pathname==='/health')return json({service:'newsautobear-bot',version:'1.1.0',database:!!e.DB,telegramConfigured:!!e.TELEGRAM_BOT_TOKEN,geminiConfigured:!!e.GEMINI_API_KEY,aiEnabled:e.AI_ENABLED==='true'});
     if(request.method==='GET'&&url.pathname==='/activate')return html('<h1>Kích hoạt bot</h1><p>Nhập lại Telegram token đã lưu trong Cloudflare Secrets để chứng minh bạn quản lý bot. Token gửi bằng HTTPS tới chính Worker này, dùng để đăng ký webhook với Telegram; không lưu trong kho tin.</p><form method="post" action="/activate"><label>Telegram token<input type="password" name="token" autocomplete="off" required></label><button>Kích hoạt và lấy liên kết ghép nối</button></form>');
     try{

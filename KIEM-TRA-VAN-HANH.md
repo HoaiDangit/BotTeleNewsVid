@@ -55,3 +55,11 @@ Sửa: chạy kiem-video.mjs bằng tiến trình con bất đồng bộ, vẫn 
 - Bỏ workout khỏi bundle Worker; tắt lịch 20:00, /baitap và /video_tap không tạo yêu cầu. Menu còn 4 lệnh myid, tin, video_tin, check_status; bản tin 5 tin lúc 07:00 giữ nguyên.
 - Cầu nối hủy job workout đang queued trước khi lấy việc; giữ lịch sử, ảnh/video và các job đang chạy. Không xóa dữ liệu Google Drive hay thư mục ứng dụng.
 - Cloudflare 1.8.0-news-only đã hoạt động; Telegram API xác nhận menu mặc định và chủ bot có đúng 4 lệnh. 62/62 kiểm thử đạt, gồm không gửi bản tối, lệnh cũ không xếp hàng, queued workout được hủy, video tin vẫn hoạt động.
+
+
+## 09/11/2026 — hoàn tất triển khai 10 tin và nguồn báo mới
+- Kiểm tra đầu phiên: Cloudflare vẫn chạy 1.8.0-news-only, lịch 5 tin; thay đổi trên máy từ phiên trước chưa triển khai. Nay đã triển khai 1.8.1-ten-news-sources và xác nhận dailyCount=10 qua API thật, trang gốc ghi 10 tin lúc 07:00 giờ Việt Nam.
+- Thêm Nhân Dân (tổng hợp/kinh tế/văn hóa), Báo Điện tử Chính phủ, VietNamNet tổng hợp và CafeF (vĩ mô/tài chính quốc tế/kinh tế số). Cloudflare đã thu thành công cả 8 RSS mới; lần kiểm tra Nhân Dân 20 bài/kênh, Chính phủ 13, VietNamNet 20, CafeF 20/kênh.
+- Loại kênh công nghệ VietNamNet cũ vì chỉ có tin tháng 05/2025; dùng kênh tổng hợp hiện hành và phân loại AI/công nghệ theo nội dung. Tổng 20 RSS, quét 3 RSS mỗi 3 phút (~21 phút/vòng). Cho phép feed tới 2 MB vì RSS tổng hợp VietNamNet hơn 1 MB.
+- Bản tin tự động và /tin dùng cùng DAILY_NEWS_COUNT=10; kho ứng viên đọc tối đa 1500 bài. Giữ ưu tiên ảnh hưởng xã hội, công nghệ/AI, Việt Nam và lọc trùng; không khẳng định dựa trên lượt xem. Thiếu tin phù hợp thì báo thiếu. Bản cũ đã gửi không gửi trùng sau cập nhật.
+- Đồng bộ menu Telegram: lệnh tin mô tả 10 tin. 63/63 kiểm thử đạt, bao gồm bản tin mô phỏng có đúng 10 URL, 4 nguồn yêu cầu và refresh RSS giới hạn theo nhóm. Không gửi bản tin thủ công trong lần triển khai; lịch kế tiếp 07:00 ngày 10/11/2026.

@@ -38,11 +38,16 @@ async function videoAPI(request,e,ctx) {
   if(!bearer.startsWith('Bearer ')||await sha(bearer.slice(7))!==(e.VIDEO_AGENT_SHA256||AGENT_SHA256))return json({error:'Forbidden'},403);
   await init(e);await initVideo(e);
   const route=new URL(request.url).pathname;
-  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.8.0-news-only'});
+  if(request.method==='GET'&&route==='/render/ping')return json({ok:true,ownerPaired:!!await get(e,'owner'),agentSeen:Number(await get(e,'video_agent_seen')||0),version:'1.8.1-ten-news-sources'});
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   if(route==='/render/heartbeat')return await videoHeartbeat(e,await request.json(),ctx);
   if(route==='/render/article'){const a=await loadArticle((await request.json()).url);return json({title:a.title,url:a.url,characters:a.summary.length});}
   if(route==='/render/admin')return await adminSetup(e,await request.json());
+  if(route==='/render/sources'){
+    const data=await request.json();let feeds=FEEDS;
+    if(data.refreshGroup!==undefined){const group=Number(data.refreshGroup);if(!Number.isInteger(group)||group<0||group>=Math.ceil(FEEDS.length/3))return json({error:'Invalid source group'},400);await collect(e,group);feeds=FEEDS.slice(group*3,group*3+3);}
+    return json({dailyCount:DAILY_NEWS_COUNT,feedCount:FEEDS.length,sources:await Promise.all(feeds.map(async f=>({name:f[0],category:f[1],url:f[2],state:JSON.parse(await get(e,'feed:'+f[2])||'null')})))});
+  }
   if(route==='/render/menu')return json(await syncMenu(e));
   if(route==='/render/audit')return json(await auditBot(e,(await request.json()).probeAI===true));
   if(route==='/render/claim') {
